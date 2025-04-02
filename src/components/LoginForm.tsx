@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,8 +24,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
-import { apiClient } from "@/lib/apiClient";
-import { User, UserRole } from "@/types";
+import { api } from "@/services/api";
+import { User, UserRole } from "@/types/user";
 
 // Define validation schema with Zod
 const loginSchema = z.object({
@@ -57,7 +57,7 @@ interface LoginApiResponse {
 }
 
 export default function LoginForm() {
-  const { setUser } = useApp();
+  const { setUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const formId = useId();
@@ -78,11 +78,7 @@ export default function LoginForm() {
     LoginFormValues
   >({
     mutationFn: async (credentials) => {
-      const response = await apiClient({
-        method: "auth/signin",
-        args: { email: credentials.email, password: credentials.password },
-        requiresAuth: false,
-      });
+      const response = await api.auth.login(credentials.email, credentials.password);
       return response as LoginApiResponse;
     },
     onSuccess: (data) => {

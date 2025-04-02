@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/apiClient";
+import { api } from "@/services/api";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,23 +50,26 @@ export default function AdminUsersPage() {
   // Fetch users list
   const { data: users = [], isLoading } = useQuery<AdminUser[]>({
     queryKey: ["admin", "users"],
-    queryFn: () => 
-      apiClient<AdminUser[]>({
+    queryFn: async () => {
+      const response = await api.client.request({
         method: "admin/users",
         args: {},
-      }).then(res => res.response || []),
+      });
+      return response.result || [];
+    }
   });
 
   // Reset password mutation
   const resetPasswordMutation = useMutation({
-    mutationFn: (data: { userId: number; newPassword: string }) => 
-      apiClient({
+    mutationFn: async (data: { userId: number; newPassword: string }) => {
+      return api.client.request({
         method: "admin/resetPassword",
         args: {
           userId: data.userId,
           newPassword: data.newPassword
         },
-      }),
+      });
+    },
     onSuccess: () => {
       toast({
         title: "Password Reset",
@@ -86,11 +89,12 @@ export default function AdminUsersPage() {
 
   // Delete user mutation
   const deleteUserMutation = useMutation({
-    mutationFn: (userId: number) => 
-      apiClient({
+    mutationFn: async (userId: number) => {
+      return api.client.request({
         method: "admin/deleteUser",
         args: { userId },
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       toast({

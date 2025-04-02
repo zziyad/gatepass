@@ -1,0 +1,75 @@
+import { apiClient } from './client';
+import { AuthApiInterface, ApiResponse } from './types';
+
+/**
+ * Auth API service for handling authentication-related requests
+ */
+class AuthApi implements AuthApiInterface {
+  /**
+   * Login with email and password
+   */
+  async login(email: string, password: string): Promise<ApiResponse> {
+    return apiClient.request({
+      method: 'auth/signin',
+      args: { email, password },
+      requiresAuth: false,
+    });
+  }
+
+  /**
+   * Logout the current user
+   */
+  async logout(): Promise<ApiResponse> {
+    return apiClient.request({
+      method: 'auth/signout',
+      args: {},
+    });
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  async verifyAuth(): Promise<boolean> {
+    return apiClient.isAuthenticated();
+  }
+
+  /**
+   * Register a new user
+   */
+  async register(userData: {
+    email: string;
+    password: string;
+    name: string;
+    role?: string;
+    departmentId?: string | number;
+  }): Promise<ApiResponse> {
+    return apiClient.request({
+      method: 'auth/register',
+      args: userData,
+      requiresAuth: false,
+    });
+  }
+  
+  /**
+   * Get current user details
+   */
+  async getCurrentUser(): Promise<ApiResponse> {
+    return apiClient.request({
+      method: 'auth/verify',
+      args: {},
+    });
+  }
+  
+  /**
+   * Reset a user's password (self)
+   */
+  async resetPassword(oldPassword: string, newPassword: string): Promise<ApiResponse> {
+    return apiClient.request({
+      method: 'auth/resetPassword',
+      args: { oldPassword, newPassword },
+    });
+  }
+}
+
+// Create and export singleton instance
+export const authApi = new AuthApi(); 

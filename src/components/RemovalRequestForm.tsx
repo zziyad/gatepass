@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
+import { useAuth, useRequests, useConfig } from "@/contexts";
 import { RemovalReason, RemovalTerm } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -33,7 +33,8 @@ interface FormData {
 }
 
 const RemovalRequestForm = () => {
-  const { addRequest, removalReasons } = useApp();
+  const { addRequest } = useRequests();
+  const { removalReasons } = useConfig();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   

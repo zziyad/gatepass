@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
+import { useAuth, useRequests } from "@/contexts";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,8 @@ import { CheckCircle, Clock, XCircle, Plus, Search } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const MyRequests = () => {
-  const { user, requests } = useApp();
+  const { user } = useAuth();
+  const { requests } = useRequests();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState("");

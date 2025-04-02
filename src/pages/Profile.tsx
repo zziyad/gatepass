@@ -1,4 +1,5 @@
-import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts";
+import { useRequests } from "@/contexts";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +8,8 @@ import { Building, UserCircle, Users, ClipboardCheck } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const Profile = () => {
-  const { user, requests } = useApp();
+  const { user } = useAuth();
+  const { requests } = useRequests();
   const isMobile = useIsMobile();
   
   if (!user) return null;

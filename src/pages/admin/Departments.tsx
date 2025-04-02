@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/apiClient";
+import { api } from "@/services/api";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,28 +34,30 @@ export default function AdminDepartmentsPage() {
   // Fetch departments list
   const { data: departments = [], isLoading, isError: isLoadError, error: loadError } = useQuery<Department[]>({
     queryKey: ["admin", "departments"],
-    queryFn: () => 
-      apiClient<Department[]>({
-        method: "admin/departments",
-        args: {},
-      }).then(res => {
+    queryFn: async () => {
+      try {
+        const res = await api.client.request({
+          method: "admin/departments",
+          args: {},
+        });
         console.log("Departments response:", res);
-        return res.response || [];
-      })
-      .catch(err => {
+        return res.result || [];
+      } catch (err) {
         console.error("Error loading departments:", err);
-        setError(`Failed to load departments: ${err.message}`);
+        setError(`Failed to load departments: ${(err as Error).message}`);
         return [];
-      }),
+      }
+    }
   });
 
   // Create department mutation
   const createDepartmentMutation = useMutation({
-    mutationFn: (data: { name: string }) => 
-      apiClient({
+    mutationFn: async (data: { name: string }) => {
+      return api.client.request({
         method: "admin/adddep",
         args: { name: data.name },
-      }),
+      });
+    },
     onSuccess: (data) => {
       console.log("Department created successfully:", data);
       queryClient.invalidateQueries({ queryKey: ["admin", "departments"] });
@@ -78,11 +80,12 @@ export default function AdminDepartmentsPage() {
 
   // Update department mutation
   const updateDepartmentMutation = useMutation({
-    mutationFn: (data: { id: number; name: string }) => 
-      apiClient({
+    mutationFn: async (data: { id: number; name: string }) => {
+      return api.client.request({
         method: "admin/updateDepartment",
         args: data,
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "departments"] });
       toast({
@@ -104,11 +107,12 @@ export default function AdminDepartmentsPage() {
 
   // Delete department mutation
   const deleteDepartmentMutation = useMutation({
-    mutationFn: (departmentId: number) => 
-      apiClient({
+    mutationFn: async (departmentId: number) => {
+      return api.client.request({
         method: "admin/deleteDepartment",
         args: { departmentId },
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "departments"] });
       toast({

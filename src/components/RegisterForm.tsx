@@ -30,7 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { apiClient } from "@/lib/apiClient";
+import { api } from "@/services/api";
+import { ApiResponse } from "@/services/api/types";
 import { UserRole } from "@/types";
 
 // Updated to match schema
@@ -85,16 +86,24 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
   // Query to fetch departments
   const { data: apiDepartments, isError } = useQuery<Department[]>({
     queryKey: ["departments"],
-    queryFn: () => 
-      apiClient<Department[]>({
-        method: "department/list",
-        args: {},
-        requiresAuth: adminCreated, // Require auth if admin is creating the account
-      }).then(res => res.response || [])
-      .catch(err => {
-        setApiError("Failed to load departments: " + err.message);
-        return [];
-      }),
+    queryFn: async () => {
+      try {
+        const response = await api.client.request({
+          method: "department/list",
+          args: {},
+          requiresAuth: adminCreated,
+        });
+        
+        if (response.type === "success" && Array.isArray(response.result)) {
+          return response.result as Department[];
+        }
+        return mockDepartments;
+      } catch (err) {
+        const error = err as Error;
+        setApiError("Failed to load departments: " + error.message);
+        return mockDepartments;
+      }
+    },
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -129,12 +138,12 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
 
   // Define the mutation
   const mutation = useMutation<
-    { status: string; response?: RegisterSuccessResponse },
+    ApiResponse<RegisterSuccessResponse>,
     Error,
     RegisterFormValues
   >({
-    mutationFn: (userData) =>
-      apiClient<RegisterSuccessResponse>({
+    mutationFn: async (userData) => {
+      return api.client.request({
         method: adminCreated ? "admin/createUser" : "auth/register",
         args: {
           name: userData.name,
@@ -143,15 +152,17 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
           departmentId: parseInt(userData.departmentId, 10),
           role: userData.role,
         },
-        requiresAuth: adminCreated, // Require auth if admin is creating the account
-      }),
+        requiresAuth: adminCreated,
+      });
+    },
     onSuccess: (data) => {
-      const successStatus = adminCreated ? "created" : "registered";
-      if (data.status === successStatus && data.response) {
+      if (data.type === "success" && data.result) {
+        const userInfo = data.result;
+        
         toast({
           title: "Registration successful",
           description: adminCreated 
-            ? `User ${data.response.name} has been created successfully.`
+            ? `User ${userInfo.name} has been created successfully.`
             : "You can now log in with your credentials.",
         });
         
@@ -170,7 +181,7 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
           });
         }
       } else {
-        throw new Error(data.status || "Registration failed: Unknown status");
+        throw new Error(data.type || "Registration failed: Unknown status");
       }
     },
     onError: (error) => {

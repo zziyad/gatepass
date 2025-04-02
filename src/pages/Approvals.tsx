@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback, memo } from "react";
+import { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, useRequests } from "@/contexts/AppContext";
+import { useAuth, useRequests } from "@/contexts";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";

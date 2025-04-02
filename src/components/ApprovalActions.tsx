@@ -1,7 +1,6 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
+import { useAuth, useRequests } from "@/contexts";
 import { RemovalRequest } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,7 +13,8 @@ interface ApprovalActionsProps {
 }
 
 const ApprovalActions: React.FC<ApprovalActionsProps> = ({ request }) => {
-  const { user, updateRequestStatus } = useApp();
+  const { user } = useAuth();
+  const { updateRequestStatus } = useRequests();
   const navigate = useNavigate();
   
   const [signature, setSignature] = useState<string | null>(null);

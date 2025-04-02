@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts";
 import { Button } from "@/components/ui/button";
 import {
   SidebarProvider,
@@ -23,16 +23,18 @@ import {
   Users,
   Building2,
   Settings,
-  Shield
+  Shield,
+  TestTube
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { toast } from "@/hooks/use-toast";
 
 interface AppLayoutProps {
   children: React.ReactNode;
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { user, setUser } = useApp();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -42,9 +44,19 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   }, [user, navigate]);
 
-  const handleLogout = () => {
-    setUser(null);
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // The logout function in AppContext will handle navigation and toast
+    } catch (error) {
+      // Show fallback error message if the AppContext logout fails
+      console.error("Logout error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to logout. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (!user) {
@@ -145,6 +157,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton 
+                    onClick={() => navigate("/api-test")} 
+                    tooltip="API Test"
+                    className="py-3 px-4 hover:bg-gray-100 text-base text-purple-600"
+                  >
+                    <TestTube className="h-5 w-5 mr-3" />
+                    <span>API Test</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
                     onClick={() => navigate("/dashboard")} 
                     tooltip="Standard Dashboard"
                     className="py-3 px-4 hover:bg-gray-100 text-base text-blue-600"
@@ -205,6 +227,16 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                   >
                     <UserCircle className="h-5 w-5 mr-3" />
                     <span>Profile</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    onClick={() => navigate("/api-test")} 
+                    tooltip="API Test"
+                    className="py-3 px-4 hover:bg-gray-100 text-base"
+                  >
+                    <TestTube className="h-5 w-5 mr-3" />
+                    <span>API Test</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 {isAdmin && (

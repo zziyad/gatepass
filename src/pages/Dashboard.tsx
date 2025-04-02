@@ -1,4 +1,4 @@
-import { useApp } from "@/contexts/AppContext";
+import { useAuth, useRequests } from "@/contexts";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { canUserApprove } from "@/lib/mockData";
@@ -9,7 +9,8 @@ import QuickActionsCard from "@/components/QuickActionsCard";
 import RecentActivityList from "@/components/RecentActivityList";
 
 const Dashboard = () => {
-  const { user, requests } = useApp();
+  const { user } = useAuth();
+  const { requests } = useRequests();
   const isMobile = useIsMobile();
 
   // Calculate pending approvals count needed for QuickActionsCard

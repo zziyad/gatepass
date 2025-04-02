@@ -46,6 +46,9 @@ export const routes: RouteConfig[] = [
 
   // Auth routes (public)
   { path: "/login", element: lazyLoad(() => import("./pages/Login")) },
+  { path: "/forbidden", element: lazyLoad(() => import("./pages/Forbidden")) },
+  { path: "/unauthorized", element: lazyLoad(() => import("./pages/Unauthorized")) },
+  { path: "/api-test", element: lazyLoad(() => import("./pages/ApiTest")) },
   
   // Admin routes (protected)
   { 

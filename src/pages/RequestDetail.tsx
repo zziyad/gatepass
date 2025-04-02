@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import RequestDetails from "@/components/RequestDetails";
@@ -8,10 +7,12 @@ import ApprovalActions from "@/components/ApprovalActions";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useRequests, useConfig } from "@/contexts";
 
 const RequestDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { getRequest, removalReasons } = useApp();
+  const { getRequest } = useRequests();
+  const { removalReasons } = useConfig();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   

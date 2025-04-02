@@ -17,7 +17,7 @@ import {
   getCurrentApprovalStage,
 } from "@/lib/mockData";
 import { toast } from "@/hooks/use-toast";
-import { apiClient, isAuthenticated, logout as apiLogout } from "@/lib/apiClient";
+import authService from "@/services/auth";
 
 // Define a type for the item data
 interface ItemData {
@@ -32,6 +32,8 @@ interface AuthContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   users: User[];
+  login: (email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 }
 
 // 2. RequestsContext for request-related operations
@@ -97,27 +99,16 @@ export function AuthProvider({ children }: AppProviderProps) {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        // Use the isAuthenticated utility which verifies the cookie
-        const isUserAuthenticated = await isAuthenticated();
+        // Use the auth service to check authentication status
+        const isUserAuthenticated = await authService.isAuthenticated();
         
         if (isUserAuthenticated) {
           // If authenticated, fetch user data
-          const userData = await apiClient({ 
-            method: 'auth/verify', // Changed from auth/me to match your server implementation
-            requiresAuth: false // Cookie is sent automatically
-          });
+          const userData = await authService.getCurrentUser();
           
-          if (userData.result?.status === 'valid' && userData.result.response) {
-            const userInfo = userData.result.response;
-            // Format the response to match our User type
-            const user: User = {
-              id: userInfo.id.toString(),
-              name: userInfo.email, // Using email as name if name is not available
-              email: userInfo.email,
-              role: userInfo.role || (userInfo.email.includes('admin') ? 'ADMIN' : 'EMPLOYEE'),
-              department: userInfo.department?.name || 'Default Department',
-            };
-            setUser(user);
+          if (userData) {
+            // User data is already properly formatted from the service
+            setUser(userData);
           }
         }
       } catch (err) {
@@ -129,30 +120,76 @@ export function AuthProvider({ children }: AppProviderProps) {
     checkAuthStatus();
   }, []);
 
-  // Implement logout function
-  const logout = useCallback(async () => {
+  // Login function
+  const handleLogin = useCallback(async (email: string, password: string) => {
     try {
-      // Call the apiLogout function that handles server-side logout and cookie removal
-      await apiLogout();
+      const userData = await authService.login({ email, password });
+      
+      if (userData) {
+        setUser(userData);
+        toast({
+          title: "Success",
+          description: "Logged in successfully",
+        });
+        return true;
+      } else {
+        toast({
+          title: "Error",
+          description: "Login failed",
+          variant: "destructive",
+        });
+        return false;
+      }
     } catch (err) {
-      console.error('Logout failed:', err);
-    } finally {
-      // Always clear the user state, even if the server-side logout fails
-      setUser(null);
-      // Redirect to login page
-      window.location.href = '/login';
+      console.error('Login failed:', err);
+      toast({
+        title: "Error",
+        description: "Login failed. Please try again.",
+        variant: "destructive",
+      });
+      return false;
     }
   }, []);
 
-  // Expose user, setUser, and logout function
+  // Implement logout function
+  const handleLogout = useCallback(async () => {
+    try {
+      // Call the auth service logout function
+      const success = await authService.logout();
+      
+      if (success) {
+        // Clear the user state
+        setUser(null);
+        // Success message
+        toast({
+          title: "Success",
+          description: "Logged out successfully",
+        });
+        // Redirect to login page
+        window.location.href = '/login';
+      } else {
+        throw new Error("Logout failed");
+      }
+    } catch (err) {
+      console.error('Logout failed:', err);
+      toast({
+        title: "Error",
+        description: "Logout failed. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, []);
+
+  // Expose user, setUser, and auth functions
   const value = useMemo(
     () => ({
       user,
       setUser,
       users,
-      logout,
+      login: handleLogin,
+      logout: handleLogout,
     }),
-    [user, users, logout]
+    [user, users, handleLogin, handleLogout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

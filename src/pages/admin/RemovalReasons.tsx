@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/apiClient";
+import { api } from "@/services/api";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,20 +27,23 @@ export default function AdminRemovalReasonsPage() {
   // Fetch removal reasons list
   const { data: reasons = [], isLoading } = useQuery<RemovalReason[]>({
     queryKey: ["admin", "removalReasons"],
-    queryFn: () => 
-      apiClient<RemovalReason[]>({
+    queryFn: async () => {
+      const response = await api.client.request({
         method: "admin/removalReasons",
         args: {},
-      }).then(res => res.response || []),
+      });
+      return response.result || [];
+    }
   });
 
   // Create removal reason mutation
   const createReasonMutation = useMutation({
-    mutationFn: (data: { name: string }) => 
-      apiClient({
+    mutationFn: async (data: { name: string }) => {
+      return api.client.request({
         method: "admin/createRemovalReason",
         args: data,
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "removalReasons"] });
       toast({
@@ -60,11 +63,12 @@ export default function AdminRemovalReasonsPage() {
 
   // Update removal reason mutation
   const updateReasonMutation = useMutation({
-    mutationFn: (data: { id: string; name: string }) => 
-      apiClient({
+    mutationFn: async (data: { id: string; name: string }) => {
+      return api.client.request({
         method: "admin/updateRemovalReason",
         args: data,
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "removalReasons"] });
       toast({
@@ -84,11 +88,12 @@ export default function AdminRemovalReasonsPage() {
 
   // Delete removal reason mutation
   const deleteReasonMutation = useMutation({
-    mutationFn: (reasonId: string) => 
-      apiClient({
+    mutationFn: async (reasonId: string) => {
+      return api.client.request({
         method: "admin/deleteRemovalReason",
         args: { reasonId },
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "removalReasons"] });
       toast({
