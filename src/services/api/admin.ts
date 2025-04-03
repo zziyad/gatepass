@@ -10,7 +10,8 @@ class AdminApi implements AdminApiInterface {
    */
   async getDepartments(): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/departments',
+      method: 'admin/department/departments',
+      args: {},
     });
   }
 
@@ -19,7 +20,7 @@ class AdminApi implements AdminApiInterface {
    */
   async createDepartment(name: string): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/createDepartment',
+      method: 'admin/department/adddep',
       args: { name },
     });
   }
@@ -29,7 +30,7 @@ class AdminApi implements AdminApiInterface {
    */
   async updateDepartment(id: number, name: string): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/updateDepartment',
+      method: 'admin/department/upddep',
       args: { id, name },
     });
   }
@@ -39,7 +40,7 @@ class AdminApi implements AdminApiInterface {
    */
   async deleteDepartment(id: number): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/deleteDepartment',
+      method: 'admin/department/deldep',
       args: { id },
     });
   }
@@ -49,7 +50,7 @@ class AdminApi implements AdminApiInterface {
    */
   async getRemovalReasons(): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/removalReasons',
+      method: 'admin/removalreason/removalreasons',
     });
   }
 
@@ -58,7 +59,7 @@ class AdminApi implements AdminApiInterface {
    */
   async createRemovalReason(name: string): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/createRemovalReason',
+      method: 'admin/removalreason/add',
       args: { name },
     });
   }
@@ -68,7 +69,7 @@ class AdminApi implements AdminApiInterface {
    */
   async updateRemovalReason(id: string, name: string): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/updateRemovalReason',
+      method: 'admin/removalreason/update',
       args: { id, name },
     });
   }
@@ -78,7 +79,7 @@ class AdminApi implements AdminApiInterface {
    */
   async deleteRemovalReason(id: string): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/deleteRemovalReason',
+      method: 'admin/removalreason/delete',
       args: { id },
     });
   }
@@ -88,7 +89,7 @@ class AdminApi implements AdminApiInterface {
    */
   async getUsers(): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/users',
+      method: 'user/users',
     });
   }
 
@@ -97,7 +98,7 @@ class AdminApi implements AdminApiInterface {
    */
   async createUser(userData: Record<string, any>): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/createUser',
+      method: 'auth/register',
       args: userData,
     });
   }
@@ -105,10 +106,10 @@ class AdminApi implements AdminApiInterface {
   /**
    * Update an existing user
    */
-  async updateUser(id: number, userData: Record<string, any>): Promise<ApiResponse> {
+  async updateUser(id: number, email: string, role: string, departmentId: number): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/updateUser',
-      args: { id, ...userData },
+      method: 'user/update',
+      args: { id, email, role, departmentId },
     });
   }
 
@@ -117,7 +118,7 @@ class AdminApi implements AdminApiInterface {
    */
   async deleteUser(id: number): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/deleteUser',
+      method: 'user/delete',
       args: { id },
     });
   }
@@ -125,10 +126,10 @@ class AdminApi implements AdminApiInterface {
   /**
    * Reset a user's password
    */
-  async resetPassword(id: number): Promise<ApiResponse> {
+  async resetPassword(id: number, newPassword: string): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/resetPassword',
-      args: { id },
+      method: 'user/resetpassword',
+      args: { id, newPassword },
     });
   }
 }

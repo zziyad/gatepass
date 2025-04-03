@@ -36,16 +36,30 @@ export default function AdminDepartmentsPage() {
     queryKey: ["admin", "departments"],
     queryFn: async () => {
       try {
-        const res = await api.client.request({
-          method: "admin/departments",
-          args: {},
-        });
+        const res = await api.admin.getDepartments();
         console.log("Departments response:", res);
-        return res.result || [];
+        
+        // Extract departments from response
+        // Backend returns: 
+        // {
+        //   "status": "success",
+        //   "response": {
+        //     "msg": "Departments fetched successfully",
+        //     "departments": [
+        //       { "id": 2, "name": "FINANCE", "userCount": 0 },
+        //       { "id": 4, "name": "HSK", "userCount": 0 },
+        //       { "id": 1, "name": "IT", "userCount": 1 }
+        //     ]
+        //   }
+        // }
+        const departmentsList = res.result?.response?.departments || [];
+        console.log("Departments list:", departmentsList);
+        // Ensure result is of Department[] type
+        return departmentsList as Department[];
       } catch (err) {
         console.error("Error loading departments:", err);
         setError(`Failed to load departments: ${(err as Error).message}`);
-        return [];
+        return [] as Department[];
       }
     }
   });
@@ -53,17 +67,28 @@ export default function AdminDepartmentsPage() {
   // Create department mutation
   const createDepartmentMutation = useMutation({
     mutationFn: async (data: { name: string }) => {
-      return api.client.request({
-        method: "admin/adddep",
-        args: { name: data.name },
-      });
+      return api.admin.createDepartment(data.name);
     },
     onSuccess: (data) => {
       console.log("Department created successfully:", data);
+      
+      // Handle response from backend:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": {
+      //       "msg": "Department created successfully",
+      //       "department": { "id": 2, "name": "FINANCE" }
+      //     }
+      //   }
+      // }
+      
+      const successMsg = data?.result?.response?.msg || "New department has been added successfully.";
+      
       queryClient.invalidateQueries({ queryKey: ["admin", "departments"] });
       toast({
-        title: "Department Created",
-        description: "New department has been added successfully.",
+        title: "Success",
+        description: successMsg,
       });
       resetForm();
     },
@@ -81,16 +106,28 @@ export default function AdminDepartmentsPage() {
   // Update department mutation
   const updateDepartmentMutation = useMutation({
     mutationFn: async (data: { id: number; name: string }) => {
-      return api.client.request({
-        method: "admin/updateDepartment",
-        args: data,
-      });
+      return api.admin.updateDepartment(data.id, data.name);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Department updated successfully:", data);
+      
+      // Handle response from backend:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": {
+      //       "msg": "Department updated successfully",
+      //       "department": { "id": 2, "name": "FINANCE" }
+      //     }
+      //   }
+      // }
+      
+      const successMsg = data?.result?.response?.msg || "Department has been updated successfully.";
+      
       queryClient.invalidateQueries({ queryKey: ["admin", "departments"] });
       toast({
-        title: "Department Updated",
-        description: "Department has been updated successfully.",
+        title: "Success",
+        description: successMsg,
       });
       resetForm();
     },
@@ -108,16 +145,27 @@ export default function AdminDepartmentsPage() {
   // Delete department mutation
   const deleteDepartmentMutation = useMutation({
     mutationFn: async (departmentId: number) => {
-      return api.client.request({
-        method: "admin/deleteDepartment",
-        args: { departmentId },
-      });
+      return api.admin.deleteDepartment(departmentId);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Department deleted successfully:", data);
+      
+      // Handle response from backend:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": {
+      //       "msg": "Department deleted successfully"
+      //     }
+      //   }
+      // }
+      
+      const successMsg = data?.result?.response?.msg || "Department has been removed successfully.";
+      
       queryClient.invalidateQueries({ queryKey: ["admin", "departments"] });
       toast({
-        title: "Department Deleted",
-        description: "Department has been removed successfully.",
+        title: "Success",
+        description: successMsg,
       });
     },
     onError: (error: Error) => {
@@ -232,7 +280,11 @@ export default function AdminDepartmentsPage() {
                 departments.map((department) => (
                   <TableRow key={department.id}>
                     <TableCell className="font-medium">{department.name}</TableCell>
-                    <TableCell>{department.userCount || 0} users</TableCell>
+                    <TableCell>
+                      <span className={department.userCount ? "font-medium text-green-600" : "text-gray-500"}>
+                        {department.userCount || 0} {department.userCount === 1 ? "user" : "users"}
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
                         variant="ghost"

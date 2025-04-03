@@ -17,7 +17,17 @@ export default function ProtectedRoute({
   allowedRoles 
 }: ProtectedRouteProps) {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  // If still loading auth status, render a minimal loading state
+  // This prevents flash of login page during auth check
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+      </div>
+    );
+  }
 
   // If no user is logged in, redirect to login
   if (!user) {

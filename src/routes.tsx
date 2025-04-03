@@ -67,10 +67,6 @@ export const routes: RouteConfig[] = [
     path: "/admin/removal-reasons", 
     element: protectedRoute(lazyLoad(() => import("./pages/admin/RemovalReasons")), true) 
   },
-  { 
-    path: "/admin/register-user", 
-    element: protectedRoute(lazyLoad(() => import("./pages/admin/RegisterUser")), true) 
-  },
 
   // Main application routes (protected)
   { 

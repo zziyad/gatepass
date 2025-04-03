@@ -37,9 +37,9 @@ class AuthApi implements AuthApiInterface {
    * Register a new user
    */
   async register(userData: {
+    fullName: string;
     email: string;
     password: string;
-    name: string;
     role?: string;
     departmentId?: string | number;
   }): Promise<ApiResponse> {

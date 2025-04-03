@@ -21,15 +21,16 @@ interface AppLayoutProps {
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth(); // Get loading state
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    if (!user) {
+    // Only redirect if loading is finished and there's no user
+    if (!loading && !user) {
       navigate("/login");
     }
-  }, [user, navigate]);
+  }, [user, loading, navigate]);
 
   const handleLogout = async () => {
     try {
@@ -46,10 +47,22 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     }
   };
 
-  if (!user) {
-    return null; // Will redirect to login
+  // Show loading indicator while checking auth status
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        Loading...
+      </div>
+    );
   }
 
+  // If loading is finished and still no user, redirect (handled by useEffect)
+  // or render nothing briefly before redirect happens.
+  if (!user) {
+    return null;
+  }
+
+  // User is loaded and authenticated, proceed with layout
   const isAdmin = user.role === "ADMIN";
 
   return (

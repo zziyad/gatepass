@@ -15,9 +15,9 @@ export interface LoginCredentials {
  * Registration data
  */
 export interface RegistrationData {
+  fullName: string;
   email: string;
   password: string;
-  name: string;
   role?: UserRole;
   departmentId?: string | number;
 }

@@ -13,9 +13,10 @@ import {
   DialogHeader, 
   DialogTitle 
 } from "@/components/ui/dialog";
-import { PlusIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, PencilIcon, Trash2Icon, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RemovalReason } from "@/types";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function AdminRemovalReasonsPage() {
   const { toast } = useToast();
@@ -23,36 +24,73 @@ export default function AdminRemovalReasonsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingReason, setEditingReason] = useState<RemovalReason | null>(null);
   const [reasonName, setReasonName] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch removal reasons list
-  const { data: reasons = [], isLoading } = useQuery<RemovalReason[]>({
+  const { data: reasons = [], isLoading, isError: isLoadError, error: loadError } = useQuery<RemovalReason[]>({
     queryKey: ["admin", "removalReasons"],
     queryFn: async () => {
-      const response = await api.client.request({
-        method: "admin/removalReasons",
-        args: {},
-      });
-      return response.result || [];
+      try {
+        const response = await api.admin.getRemovalReasons();
+        
+        // Expected response format:
+        // {
+        //   "result": {
+        //     "status": "success",
+        //     "response": {
+        //       "msg": "Removal reasons fetched successfully",
+        //       "reasons": [...]
+        //     }
+        //   }
+        // }
+        
+        if (response.result?.status === "success" && 
+            response.result.response?.reasons) {
+          return response.result.response.reasons as RemovalReason[];
+        }
+        
+        console.error("Unexpected response format:", response);
+        return [];
+      } catch (err) {
+        const error = err as Error;
+        console.error("Failed to load removal reasons:", error);
+        setError(`Failed to load removal reasons: ${error.message}`);
+        return [];
+      }
     }
   });
 
   // Create removal reason mutation
   const createReasonMutation = useMutation({
     mutationFn: async (data: { name: string }) => {
-      return api.client.request({
-        method: "admin/createRemovalReason",
-        args: data,
-      });
+      return api.admin.createRemovalReason(data.name);
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log("Create reason response:", response);
+      
+      // Expected response format:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": {
+      //       "msg": "Removal reason created successfully",
+      //       "reason": { "id": "1", "name": "Example" }
+      //     }
+      //   }
+      // }
+      
+      const msg = response.result?.response?.msg || "New removal reason has been added successfully.";
+      
       queryClient.invalidateQueries({ queryKey: ["admin", "removalReasons"] });
       toast({
-        title: "Reason Created",
-        description: "New removal reason has been added successfully.",
+        title: "Success",
+        description: msg,
       });
       resetForm();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      console.error("Failed to create removal reason:", error);
+      setError(`Failed to create removal reason: ${error.message}`);
       toast({
         title: "Error",
         description: error.message || "Failed to create removal reason",
@@ -64,20 +102,34 @@ export default function AdminRemovalReasonsPage() {
   // Update removal reason mutation
   const updateReasonMutation = useMutation({
     mutationFn: async (data: { id: string; name: string }) => {
-      return api.client.request({
-        method: "admin/updateRemovalReason",
-        args: data,
-      });
+      return api.admin.updateRemovalReason(data.id, data.name);
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log("Update reason response:", response);
+      
+      // Expected response format:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": {
+      //       "msg": "Removal reason updated successfully",
+      //       "reason": { "id": "1", "name": "Updated Example" }
+      //     }
+      //   }
+      // }
+      
+      const msg = response.result?.response?.msg || "Removal reason has been updated successfully.";
+      
       queryClient.invalidateQueries({ queryKey: ["admin", "removalReasons"] });
       toast({
-        title: "Reason Updated",
-        description: "Removal reason has been updated successfully.",
+        title: "Success",
+        description: msg,
       });
       resetForm();
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      console.error("Failed to update removal reason:", error);
+      setError(`Failed to update removal reason: ${error.message}`);
       toast({
         title: "Error",
         description: error.message || "Failed to update removal reason",
@@ -89,19 +141,32 @@ export default function AdminRemovalReasonsPage() {
   // Delete removal reason mutation
   const deleteReasonMutation = useMutation({
     mutationFn: async (reasonId: string) => {
-      return api.client.request({
-        method: "admin/deleteRemovalReason",
-        args: { reasonId },
-      });
+      return api.admin.deleteRemovalReason(reasonId);
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log("Delete reason response:", response);
+      
+      // Expected response format:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": {
+      //       "msg": "Removal reason deleted successfully"
+      //     }
+      //   }
+      // }
+      
+      const msg = response.result?.response?.msg || "Removal reason has been deleted successfully.";
+      
       queryClient.invalidateQueries({ queryKey: ["admin", "removalReasons"] });
       toast({
-        title: "Reason Deleted",
-        description: "Removal reason has been deleted successfully.",
+        title: "Success",
+        description: msg,
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      console.error("Failed to delete removal reason:", error);
+      setError(`Failed to delete removal reason: ${error.message}`);
       toast({
         title: "Error",
         description: error.message || "Failed to delete removal reason",
@@ -115,11 +180,17 @@ export default function AdminRemovalReasonsPage() {
     setDialogOpen(false);
     setEditingReason(null);
     setReasonName("");
+    setError(null);
   };
 
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!reasonName.trim()) {
+      setError("Reason name cannot be empty");
+      return;
+    }
     
     if (editingReason) {
       updateReasonMutation.mutate({
@@ -138,6 +209,7 @@ export default function AdminRemovalReasonsPage() {
     setEditingReason(reason);
     setReasonName(reason.name);
     setDialogOpen(true);
+    setError(null);
   };
 
   // Handle reason deletion
@@ -152,6 +224,7 @@ export default function AdminRemovalReasonsPage() {
     setEditingReason(null);
     setReasonName("");
     setDialogOpen(true);
+    setError(null);
   };
 
   return (
@@ -163,6 +236,16 @@ export default function AdminRemovalReasonsPage() {
             <PlusIcon className="mr-2 h-4 w-4" /> Add Reason
           </Button>
         </div>
+
+        {isLoadError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {loadError instanceof Error ? loadError.message : "Failed to load removal reasons"}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Removal Reasons table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -228,6 +311,15 @@ export default function AdminRemovalReasonsPage() {
                   : "Enter the details for the new removal reason"}
               </DialogDescription>
             </DialogHeader>
+            
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
             <form onSubmit={handleSubmit}>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -252,7 +344,7 @@ export default function AdminRemovalReasonsPage() {
                 </Button>
                 <Button 
                   type="submit" 
-                  disabled={!reasonName || 
+                  disabled={!reasonName.trim() || 
                     createReasonMutation.isPending || 
                     updateReasonMutation.isPending}
                 >

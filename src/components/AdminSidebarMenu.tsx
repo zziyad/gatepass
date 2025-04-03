@@ -10,7 +10,6 @@ import {
   Users,
   Building2,
   FileText,
-  Plus,
   TestTube,
   Home,
 } from "lucide-react";
@@ -58,16 +57,6 @@ const AdminSidebarMenu: React.FC = () => {
         >
           <FileText className="h-5 w-5 mr-3" />
           <span>Manage Reasons</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/admin/register-user")}
-          tooltip="Register User"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <Plus className="h-5 w-5 mr-3" />
-          <span>Register User</span>
         </SidebarMenuButton>
       </SidebarMenuItem>
       <SidebarMenuItem>

@@ -30,9 +30,9 @@ export interface AuthApiInterface {
   logout(): Promise<ApiResponse>;
   verifyAuth(): Promise<boolean>;
   register(userData: {
+    fullName: string;
     email: string;
     password: string;
-    name: string;
     role?: string;
     departmentId?: string | number;
   }): Promise<ApiResponse>;
@@ -52,6 +52,7 @@ export interface RequestsApiInterface {
 // Type for admin-related API interfaces
 export interface AdminApiInterface {
   getDepartments(): Promise<ApiResponse>;
+  // Uses endpoint 'admin/adddep'
   createDepartment(name: string): Promise<ApiResponse>;
   updateDepartment(id: number, name: string): Promise<ApiResponse>;
   deleteDepartment(id: number): Promise<ApiResponse>;
@@ -61,7 +62,7 @@ export interface AdminApiInterface {
   deleteRemovalReason(id: string): Promise<ApiResponse>;
   getUsers(): Promise<ApiResponse>;
   createUser(userData: Record<string, any>): Promise<ApiResponse>;
-  updateUser(id: number, userData: Record<string, any>): Promise<ApiResponse>;
+  updateUser(id: number, email: string, role: string, departmentId: number): Promise<ApiResponse>;
   deleteUser(id: number): Promise<ApiResponse>;
-  resetPassword(id: number): Promise<ApiResponse>;
+  resetPassword(id: number, newPassword: string): Promise<ApiResponse>;
 } 

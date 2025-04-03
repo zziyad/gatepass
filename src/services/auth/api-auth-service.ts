@@ -63,19 +63,16 @@ export class ApiAuthService implements AuthService {
    */
   async getCurrentUser(): Promise<User | null> {
     try {
-      const response = await api.auth.verifyAuth();
+      // Directly call the endpoint that verifies and returns user data
+      const userData = await api.auth.getCurrentUser(); // This likely calls 'auth/verify'
 
-      if (response) {
-        // Get the actual user data
-        const userData = await api.auth.getCurrentUser();
-
-        if (
-          userData.result?.status === "logged" &&
-          userData.result.response?.user
-        ) {
-          return apiUserToUser(userData.result.response.user as ApiUser);
-        }
+      if (
+        userData.result?.status === "logged" &&
+        userData.result.response?.user
+      ) {
+        return apiUserToUser(userData.result.response.user as ApiUser);
       }
+      // Removed extra brace here
 
       return null;
     } catch (error) {

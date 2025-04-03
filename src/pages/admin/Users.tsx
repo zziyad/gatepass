@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/services/api";
 import AppLayout from "@/components/AppLayout";
@@ -21,15 +21,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PencilIcon, Trash2Icon, SearchIcon, UserPlusIcon } from "lucide-react";
+import { PencilIcon, Trash2Icon, SearchIcon, UserPlusIcon, AlertCircle, KeyIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import { User, UserRole } from "@/types";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import RegisterForm from "@/components/RegisterForm";
 
 // Extended user type with department details
 interface AdminUser {
   id: number;
-  name: string;
+  fullname: string;
   email: string;
   role: UserRole;
   department: {
@@ -38,47 +39,123 @@ interface AdminUser {
   };
 }
 
+// Department type for the dropdown
+interface Department {
+  id: number;
+  name: string;
+}
+
 export default function AdminUsersPage() {
-  const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+  const [registerUserOpen, setRegisterUserOpen] = useState(false);
+  const [editUserOpen, setEditUserOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState<UserRole | "">("");
+  const [editDepartmentId, setEditDepartmentId] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState<string>("ALL_ROLES");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("ALL_DEPARTMENTS");
 
-  // Fetch users list
-  const { data: users = [], isLoading } = useQuery<AdminUser[]>({
-    queryKey: ["admin", "users"],
+  // Fetch departments for the edit user form
+  const { data: departments = [] } = useQuery<Department[]>({
+    queryKey: ["departments"],
     queryFn: async () => {
-      const response = await api.client.request({
-        method: "admin/users",
-        args: {},
-      });
-      return response.result || [];
+      try {
+        const response = await api.admin.getDepartments();
+        
+        if (response.result?.status === "success" && 
+            response.result.response?.departments) {
+          return response.result.response.departments as Department[];
+        }
+        
+        return [];
+      } catch (err) {
+        console.error("Failed to load departments:", err);
+        return [];
+      }
     }
   });
+
+  // Fetch users list
+  const { data: users = [], isLoading, isError: isLoadError, error: loadError } = useQuery<AdminUser[]>({
+    queryKey: ["admin", "users"],
+    queryFn: async (): Promise<AdminUser[]> => {
+      try {
+        const response = await api.admin.getUsers();
+        
+        // Expected response format:
+        // {
+        //   "result": {
+        //     "status": "success",
+        //     "response": {
+        //       "msg": "Users fetched successfully",
+        //       "users": [...]
+        //     }
+        //   }
+        // }
+        
+        if (response.result?.status === "success" && 
+            response.result.response?.users) {
+          return response.result.response.users as AdminUser[];
+        }
+        
+        console.error("Unexpected response format:", response);
+        return [] as AdminUser[];
+      } catch (err) {
+        const error = err as Error;
+        console.error("Failed to load users:", error);
+        setError(`Failed to load users: ${error.message}`);
+        return [] as AdminUser[];
+      }
+    }
+  });
+
+  // Set up edit form when a user is selected
+  useEffect(() => {
+    if (selectedUser && editUserOpen) {
+      setEditEmail(selectedUser.email || "");
+      setEditRole(selectedUser.role || "");
+      setEditDepartmentId(selectedUser.department?.id ? selectedUser.department.id.toString() : "");
+    }
+  }, [selectedUser, editUserOpen]);
 
   // Reset password mutation
   const resetPasswordMutation = useMutation({
     mutationFn: async (data: { userId: number; newPassword: string }) => {
-      return api.client.request({
-        method: "admin/resetPassword",
-        args: {
-          userId: data.userId,
-          newPassword: data.newPassword
-        },
-      });
+      return api.admin.resetPassword(data.userId, data.newPassword);
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log("Reset password response:", response);
+      
+      // Expected response format:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": {
+      //       "msg": "Password reset successfully"
+      //     }
+      //   }
+      // }
+      
+      const msg = response.result?.response?.msg || "User password has been reset successfully.";
+      
       toast({
-        title: "Password Reset",
-        description: "User password has been reset successfully.",
+        title: "Success",
+        description: msg,
       });
       setResetPasswordOpen(false);
       setNewPassword("");
+      setError(null);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      console.error("Failed to reset password:", error);
+      setError(`Failed to reset password: ${error.message}`);
       toast({
         title: "Error",
         description: error.message || "Failed to reset password",
@@ -87,22 +164,91 @@ export default function AdminUsersPage() {
     },
   });
 
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async (data: { 
+      id: number; 
+      email: string; 
+      role: string; 
+      departmentId: number 
+    }) => {
+      return api.admin.updateUser(
+        data.id, 
+        data.email, 
+        data.role, 
+        data.departmentId
+      );
+    },
+    onSuccess: (response) => {
+      console.log("Update user response:", response);
+      
+      // Expected response format:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": {
+      //       "msg": "User updated successfully",
+      //       "user": {
+      //         "id": 1,
+      //         "email": "user@example.com",
+      //         "role": "ADMIN",
+      //         "departmentId": 2
+      //       }
+      //     }
+      //   }
+      // }
+      
+      const msg = response.result?.response?.msg || "User has been updated successfully.";
+      
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      toast({
+        title: "Success",
+        description: msg,
+      });
+      setEditUserOpen(false);
+      setError(null);
+    },
+    onError: (error: Error) => {
+      console.error("Failed to update user:", error);
+      setError(`Failed to update user: ${error.message}`);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: number) => {
-      return api.client.request({
-        method: "admin/deleteUser",
-        args: { userId },
-      });
+      return api.admin.deleteUser(userId);
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
+      console.log("Delete user response:", response);
+      
+      // Expected response format:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": {
+      //       "msg": "User deleted successfully"
+      //     }
+      //   }
+      // }
+      
+      const msg = response.result?.response?.msg || "User has been deleted successfully.";
+      
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       toast({
-        title: "User Deleted",
-        description: "User has been removed successfully.",
+        title: "Success",
+        description: msg,
       });
+      setDeleteDialogOpen(false);
     },
-    onError: (error) => {
+    onError: (error: Error) => {
+      console.error("Failed to delete user:", error);
+      setError(`Failed to delete user: ${error.message}`);
       toast({
         title: "Error",
         description: error.message || "Failed to delete user",
@@ -111,9 +257,25 @@ export default function AdminUsersPage() {
     },
   });
 
+  // Handle user registration completion
+  const handleRegistrationComplete = () => {
+    // Refresh the users list
+    queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+  };
+
   // Handle password reset
-  const handleResetPassword = () => {
-    if (!selectedUser) return;
+  const handleResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedUser) {
+      setError("No user selected");
+      return;
+    }
+    
+    if (!newPassword.trim()) {
+      setError("Password cannot be empty");
+      return;
+    }
     
     resetPasswordMutation.mutate({
       userId: selectedUser.id,
@@ -121,20 +283,82 @@ export default function AdminUsersPage() {
     });
   };
 
-  // Handle user deletion
-  const handleDeleteUser = (user: AdminUser) => {
-    if (confirm(`Are you sure you want to delete ${user.name}?`)) {
-      deleteUserMutation.mutate(user.id);
+  // Handle user update
+  const handleUpdateUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedUser) {
+      setError("No user selected");
+      return;
     }
+    
+    if (!editEmail.trim()) {
+      setError("Email cannot be empty");
+      return;
+    }
+    
+    if (!editRole) {
+      setError("Role must be selected");
+      return;
+    }
+    
+    if (!editDepartmentId) {
+      setError("Department must be selected");
+      return;
+    }
+    
+    updateUserMutation.mutate({
+      id: selectedUser.id,
+      email: editEmail,
+      role: editRole,
+      departmentId: parseInt(editDepartmentId, 10)
+    });
   };
 
-  // Filter users based on search query
+  // Handle edit user
+  const handleEditUser = (user: AdminUser) => {
+    setSelectedUser(user);
+    setEditEmail(user.email || "");
+    setEditRole(user.role || "");
+    setEditDepartmentId(user.department?.id ? user.department.id.toString() : "");
+    setEditUserOpen(true);
+    setError(null);
+  };
+
+  // Handle user deletion
+  const handleDeleteUser = () => {
+    if (!selectedUser) return;
+    deleteUserMutation.mutate(selectedUser.id);
+  };
+
+  // Filter users based on search query and role/department filters
   const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.department.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (user) => {
+      // Text search filtering
+      const matchesSearch = searchQuery === "" || (
+        (user.fullname?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (user.email?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (user.department?.name?.toLowerCase() || "").includes(searchQuery.toLowerCase())
+      );
+      
+      // Role filtering
+      const matchesRole = !roleFilter || roleFilter === "ALL_ROLES" || user.role === roleFilter;
+      
+      // Department filtering
+      const matchesDepartment = !departmentFilter || 
+        departmentFilter === "ALL_DEPARTMENTS" ||
+        (user.department && user.department.id === parseInt(departmentFilter, 10));
+      
+      return matchesSearch && matchesRole && matchesDepartment;
+    }
   );
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery("");
+    setRoleFilter("ALL_ROLES");
+    setDepartmentFilter("ALL_DEPARTMENTS");
+  };
 
   // Get role badge color
   const getRoleBadgeColor = (role: UserRole) => {
@@ -159,14 +383,24 @@ export default function AdminUsersPage() {
       <div className="container mx-auto py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Manage Users</h1>
-          <Button onClick={() => navigate("/admin/register-user")}>
+          <Button onClick={() => setRegisterUserOpen(true)}>
             <UserPlusIcon className="mr-2 h-4 w-4" /> Register New User
           </Button>
         </div>
 
+        {isLoadError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              {loadError instanceof Error ? loadError.message : "Failed to load users"}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Search and filters */}
-        <div className="flex mb-6">
-          <div className="relative flex-1">
+        <div className="flex flex-col space-y-4 mb-6">
+          <div className="relative">
             <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search users..."
@@ -175,6 +409,62 @@ export default function AdminUsersPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="w-full sm:w-64">
+              <Select
+                value={roleFilter}
+                onValueChange={setRoleFilter}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL_ROLES">All Roles</SelectItem>
+                  <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                  <SelectItem value="HOD">Head of Department</SelectItem>
+                  <SelectItem value="FINANCE">Finance</SelectItem>
+                  <SelectItem value="MOD">Moderator</SelectItem>
+                  <SelectItem value="SECURITY">Security</SelectItem>
+                  <SelectItem value="ADMIN">Administrator</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="w-full sm:w-64">
+              <Select
+                value={departmentFilter}
+                onValueChange={setDepartmentFilter}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL_DEPARTMENTS">All Departments</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={String(dept.id)}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {(roleFilter || departmentFilter || searchQuery) && (
+              <Button
+                variant="ghost"
+                onClick={clearFilters}
+                className="h-10"
+              >
+                Clear Filters
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Users table display counts */}
+        <div className="text-sm text-gray-500 mb-4">
+          Showing {filteredUsers.length} of {users.length} users
         </div>
 
         {/* Users table */}
@@ -205,29 +495,41 @@ export default function AdminUsersPage() {
               ) : (
                 filteredUsers.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.department.name}</TableCell>
+                    <TableCell className="font-medium">{user.fullname || "N/A"}</TableCell>
+                    <TableCell>{user.email || "N/A"}</TableCell>
+                    <TableCell>{user.department?.name || "No Department"}</TableCell>
                     <TableCell>
                       <Badge className={getRoleBadgeColor(user.role)}>
-                        {user.role}
+                        {user.role || "N/A"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
                         variant="ghost" 
-                        size="sm"
+                        size="icon"
+                        onClick={() => handleEditUser(user)}
+                      >
+                        <PencilIcon className="h-4 w-4 text-blue-500" />
+                      </Button>
+                      <Button
+                        variant="ghost" 
+                        size="icon"
                         onClick={() => {
                           setSelectedUser(user);
                           setResetPasswordOpen(true);
+                          setNewPassword("");
+                          setError(null);
                         }}
                       >
-                        Reset Password
+                        <KeyIcon className="h-4 w-4 text-orange-500" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDeleteUser(user)}
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setDeleteDialogOpen(true);
+                        }}
                       >
                         <Trash2Icon className="h-4 w-4 text-red-500" />
                       </Button>
@@ -245,36 +547,205 @@ export default function AdminUsersPage() {
             <DialogHeader>
               <DialogTitle>Reset Password</DialogTitle>
               <DialogDescription>
-                Set a new password for {selectedUser?.name}
+                Set a new password for {selectedUser?.fullname}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <label htmlFor="new-password" className="text-sm font-medium">
-                  New Password
-                </label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                />
+            
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <form onSubmit={handleResetPassword}>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label htmlFor="new-password" className="text-sm font-medium">
+                    New Password
+                  </label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                  />
+                </div>
               </div>
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setResetPasswordOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={!newPassword.trim() || resetPasswordMutation.isPending}
+                >
+                  {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={editUserOpen} onOpenChange={setEditUserOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>
+                Update details for {selectedUser?.fullname}
+              </DialogDescription>
+            </DialogHeader>
+            
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <form onSubmit={handleUpdateUser}>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <label htmlFor="edit-email" className="text-sm font-medium">
+                    Email
+                  </label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="Enter email"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label htmlFor="edit-role" className="text-sm font-medium">
+                    Role
+                  </label>
+                  <Select
+                    value={editRole}
+                    onValueChange={(value) => setEditRole(value as UserRole)}
+                  >
+                    <SelectTrigger id="edit-role">
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                      <SelectItem value="HOD">Head of Department</SelectItem>
+                      <SelectItem value="FINANCE">Finance</SelectItem>
+                      <SelectItem value="MOD">Moderator</SelectItem>
+                      <SelectItem value="SECURITY">Security</SelectItem>
+                      <SelectItem value="ADMIN">Administrator</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label htmlFor="edit-department" className="text-sm font-medium">
+                    Department
+                  </label>
+                  <Select
+                    value={editDepartmentId}
+                    onValueChange={setEditDepartmentId}
+                  >
+                    <SelectTrigger id="edit-department">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={String(dept.id)}>
+                          {dept.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setEditUserOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  disabled={!editEmail.trim() || !editRole || !editDepartmentId || updateUserMutation.isPending}
+                >
+                  {updateUserMutation.isPending ? "Updating..." : "Update User"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Register User Dialog */}
+        <Dialog 
+          open={registerUserOpen} 
+          onOpenChange={(open) => {
+            setRegisterUserOpen(open);
+            if (!open) handleRegistrationComplete();
+          }}
+        >
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Register New User</DialogTitle>
+              <DialogDescription>
+                Create a new user account for the Item Removal System
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <RegisterForm 
+                adminCreated={true} 
+                queryClient={queryClient} 
+                onComplete={() => setRegisterUserOpen(false)}
+              />
             </div>
-            <DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete User Confirmation Dialog */}
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Delete User</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete {selectedUser?.fullname}? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <DialogFooter className="mt-4 gap-2">
               <Button 
+                type="button" 
                 variant="outline" 
-                onClick={() => setResetPasswordOpen(false)}
+                onClick={() => setDeleteDialogOpen(false)}
               >
                 Cancel
               </Button>
               <Button 
-                type="submit" 
-                onClick={handleResetPassword}
-                disabled={!newPassword || resetPasswordMutation.isPending}
+                type="button" 
+                variant="destructive"
+                onClick={handleDeleteUser}
+                disabled={deleteUserMutation.isPending}
               >
-                {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+                {deleteUserMutation.isPending ? "Deleting..." : "Delete User"}
               </Button>
             </DialogFooter>
           </DialogContent>

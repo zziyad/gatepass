@@ -134,9 +134,18 @@ export class ApiClient {
       const response = await this.request({
         method: 'auth/verify',
         args: {},
+        requiresAuth: false // Don't require auth to check auth status
       });
       return response.result?.status === 'logged';
     } catch (error) {
+      console.error('Authentication check failed:', error);
+      // If cookies exist, give the benefit of the doubt rather than immediately returning false
+      const hasCookies = document.cookie.includes('token') || document.cookie.includes('auth') || document.cookie.length > 0;
+      if (hasCookies && error instanceof Error && error.message.includes('Network') || error.message.includes('Failed to fetch')) {
+        // If there's a network error but we have cookies, assume user is authenticated
+        console.warn('Network error during auth check but cookies exist - assuming authenticated');
+        return true;
+      }
       return false;
     }
   }
