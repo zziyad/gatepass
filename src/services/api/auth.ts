@@ -1,5 +1,8 @@
-import { apiClient } from './client';
 import { AuthApiInterface, ApiResponse } from './types';
+import  {ApiClient}  from './client';
+
+const apiClient = new ApiClient();
+
 
 /**
  * Auth API service for handling authentication-related requests
@@ -42,6 +45,7 @@ class AuthApi implements AuthApiInterface {
     password: string;
     role?: string;
     departmentId?: string | number;
+    position?: string;
   }): Promise<ApiResponse> {
     return apiClient.request({
       method: 'auth/register',

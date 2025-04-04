@@ -7,7 +7,7 @@ import {
   ReactNode,
 } from "react";
 import { RemovalReason } from "@/types";
-import { mockRemovalReasons } from "@/lib/mockData";
+import { api } from "@/services/api";
 
 // ConfigContext for application configuration
 interface ConfigContextType {
@@ -23,25 +23,24 @@ interface ConfigProviderProps {
 }
 
 export function ConfigProvider({ children }: ConfigProviderProps) {
-  const [removalReasons, setRemovalReasons] = useState<RemovalReason[]>(mockRemovalReasons);
+  const [removalReasons, setRemovalReasons] = useState<RemovalReason[]>([]);
 
-  // In a real app, you would fetch these from the API
+  // Fetch removal reasons from the API
   useEffect(() => {
-    // Example of how you might fetch from API:
-    // async function fetchRemovalReasons() {
-    //   try {
-    //     const response = await apiClient({ method: 'admin/removalReasons' });
-    //     if (response.result?.status === 'success') {
-    //       setRemovalReasons(response.result.response || []);
-    //     }
-    //   } catch (error) {
-    //     console.error('Failed to fetch removal reasons:', error);
-    //   }
-    // }
-    // fetchRemovalReasons();
+    async function fetchRemovalReasons() {
+      try {
+        const response = await api.admin.getRemovalReasons();
+        if (response.result?.status === 'success' && response.result.response?.reasons) {
+          setRemovalReasons(response.result.response.reasons);
+        } else {
+          console.error('Failed to fetch removal reasons: Invalid response format');
+        }
+      } catch (error) {
+        console.error('Failed to fetch removal reasons:', error);
+      }
+    }
     
-    // For now, just using mock data
-    setRemovalReasons(mockRemovalReasons);
+    fetchRemovalReasons();
   }, []);
 
   const value = useMemo(

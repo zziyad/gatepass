@@ -1,12 +1,26 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, useRequests } from "@/contexts";
-import { RemovalRequest } from "@/types";
+import { RemovalRequest, RemovalStatus } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { canUserApprove } from "@/lib/mockData";
+import { UserRole } from "@/types";
 import SignatureCanvas from "react-signature-canvas";
+
+// Utility function to determine if a user with a given role can approve a request
+const canUserApprove = (userRole: UserRole, requestStatus: RemovalStatus): boolean => {
+  const roleStatusMap: Record<UserRole, RemovalStatus[]> = {
+    'LEVEL_1': [],
+    'LEVEL_2': ['PENDING_LEVEL_2'],
+    'LEVEL_3': ['PENDING_LEVEL_3'],
+    'LEVEL_4': ['PENDING_LEVEL_4'],
+    'SECURITY': ['PENDING_SECURITY'],
+    'ADMIN': ['PENDING_LEVEL_2', 'PENDING_LEVEL_3', 'PENDING_LEVEL_4', 'PENDING_SECURITY']
+  };
+  
+  return roleStatusMap[userRole]?.includes(requestStatus) || false;
+};
 
 interface ApprovalActionsProps {
   request: RemovalRequest;

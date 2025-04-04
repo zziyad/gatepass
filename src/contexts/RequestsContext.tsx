@@ -7,16 +7,61 @@ import {
   useMemo,
   ReactNode,
 } from "react";
-import { RemovalRequest, Image } from "@/types";
+import { RemovalRequest, Image, RemovalStatus } from "@/types";
 import { v4 as uuidv4 } from "uuid";
-import {
-  saveToLocalStorage,
-  loadFromLocalStorage,
-  getNextStatus,
-  getCurrentApprovalStage,
-} from "@/lib/mockData";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "./AuthContext";
+
+// Local storage utility functions
+const saveToLocalStorage = (key: string, data: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving to localStorage (${key}):`, error);
+  }
+};
+
+const loadFromLocalStorage = (key: string) => {
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error(`Error loading from localStorage (${key}):`, error);
+    return null;
+  }
+};
+
+// Helper to get the next status in the approval flow
+const getNextStatus = (currentStatus: RemovalStatus, approved: boolean): RemovalStatus => {
+  if (!approved) return 'REJECTED';
+  
+  const statusFlow: Record<RemovalStatus, RemovalStatus> = {
+    'DRAFT': 'PENDING_LEVEL_2',
+    'PENDING_LEVEL_2': 'PENDING_LEVEL_3',
+    'PENDING_LEVEL_3': 'PENDING_LEVEL_4',
+    'PENDING_LEVEL_4': 'PENDING_SECURITY',
+    'PENDING_SECURITY': 'APPROVED',
+    'APPROVED': 'APPROVED',
+    'REJECTED': 'REJECTED'
+  };
+  
+  return statusFlow[currentStatus] || currentStatus;
+};
+
+// Helper to get the current approval stage
+const getCurrentApprovalStage = (status: RemovalStatus): string => {
+  const stageMap: Record<RemovalStatus, string> = {
+    'DRAFT': 'draft',
+    'PENDING_LEVEL_2': 'Level 2',
+    'PENDING_LEVEL_3': 'Level 3',
+    'PENDING_LEVEL_4': 'Level 4',
+    'PENDING_SECURITY': 'Security',
+    'APPROVED': 'Completed',
+    'REJECTED': 'Rejected'
+  };
+  
+  return stageMap[status] || 'Unknown';
+};
 
 // RequestsContext for request-related operations
 interface RequestsContextType {
@@ -59,16 +104,28 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
 
   // Load requests from localStorage on initial render
   useEffect(() => {
-    const { requests: storedRequests } = loadFromLocalStorage();
-    if (storedRequests?.length) {
-      setRequests(storedRequests);
+    const storedData = loadFromLocalStorage("requestsData");
+    if (storedData?.requests?.length) {
+      // Convert string dates back to Date objects
+      const parsedRequests = storedData.requests.map((request: any) => ({
+        ...request,
+        createdAt: request.createdAt ? new Date(request.createdAt) : new Date(),
+        updatedAt: request.updatedAt ? new Date(request.updatedAt) : new Date(),
+        dateFrom: request.dateFrom ? new Date(request.dateFrom) : null,
+        dateTo: request.dateTo ? new Date(request.dateTo) : null,
+        // Also convert dates in approvals
+        approvals: request.approvals?.map((approval: any) => ({
+          ...approval,
+          timestamp: approval.timestamp ? new Date(approval.timestamp) : new Date()
+        })) || []
+      }));
+      setRequests(parsedRequests);
     }
   }, []);
 
   // Save requests to localStorage whenever they change
   useEffect(() => {
-    const { currentUser } = loadFromLocalStorage();
-    saveToLocalStorage(requests, currentUser);
+    saveToLocalStorage("requestsData", { requests });
   }, [requests]);
 
   const addRequest = useCallback(
@@ -98,10 +155,10 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
 
       const newRequest: RemovalRequest = {
         id: uuidv4(),
-        userId: user.id,
-        userName: user.name,
-        department: user.department,
-        status: "PENDING_HOD",
+        userId: String(user.id),
+        userName: user.fullName,
+        departmentName: user.departmentName || user.department || "Unknown",
+        status: "PENDING_LEVEL_2",
         approvals: [],
         createdAt: now,
         updatedAt: now,
@@ -152,17 +209,28 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
               return request;
             }
 
+            // Ensure stage is one of the allowed values for Approval type
+            let approvalStage: 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'SECURITY' = 'LEVEL_2';
+            
+            if (currentStage === 'Level 2' || currentStage === 'Level 3' || 
+                currentStage === 'Level 4' || currentStage === 'Security') {
+              approvalStage = currentStage === 'Level 2' ? 'LEVEL_2' : 
+                              currentStage === 'Level 3' ? 'LEVEL_3' : 
+                              currentStage === 'Level 4' ? 'LEVEL_4' : 
+                              'SECURITY';
+            }
+
             const approval = {
-              stage: currentStage,
+              stage: approvalStage,
               approved,
               signature,
               rejectionReason,
-              approvedBy: user.name,
+              approvedBy: user.fullName,
               timestamp: new Date(),
             };
 
             const newStatus = approved
-              ? getNextStatus(request.status)
+              ? getNextStatus(request.status, approved)
               : "REJECTED";
 
             const updatedRequest = {

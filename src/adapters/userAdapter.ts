@@ -9,10 +9,12 @@ import { ApiUser, User } from "../types/user";
 export function adaptApiUserToUser(apiUser: ApiUser): User {
   return {
     id: String(apiUser.id),
+    fullName: apiUser.fullName,
     email: apiUser.email,
     role: apiUser.role,
-    name: apiUser.name || '',
-    department: apiUser.department?.name || '',
+    department: apiUser.department?.name,
+    departmentName: apiUser.departmentName,
+    position: apiUser.position
   };
 }
 
@@ -24,4 +26,22 @@ export function adaptApiUserToUser(apiUser: ApiUser): User {
  */
 export function adaptApiUsersToUsers(apiUsers: ApiUser[]): User[] {
   return apiUsers.map(adaptApiUserToUser);
+}
+
+/**
+ * Convert our application User model to API user data
+ * 
+ * @param user - Client-side user model
+ * @returns API user model (partial)
+ */
+export function userToApiUser(user: User): ApiUser {
+  return {
+    id: typeof user.id === 'string' ? parseInt(user.id, 10) : user.id,
+    email: user.email,
+    fullName: user.fullName,
+    role: user.role,
+    departmentId: 0, // Default value, should be overridden
+    position: user.position,
+    departmentName: user.departmentName || user.department
+  };
 } 

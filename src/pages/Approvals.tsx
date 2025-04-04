@@ -14,9 +14,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CheckCircle, Clock, Search } from "lucide-react";
-import { canUserApprove } from "@/lib/mockData";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { RemovalRequest } from "@/types";
+import { UserRole } from "@/types";
+import { RemovalStatus } from "@/types";
 
 // Memoized request card component to prevent unnecessary re-renders
 const RequestCard = memo(
@@ -51,7 +52,7 @@ const RequestCard = memo(
             }
           >
             <p>Requested by {request.userName}</p>
-            <p>Department: {request.department}</p>
+            <p>Department: {request.departmentName}</p>
             <p>
               Status:{" "}
               <span className="text-amber-600 font-medium">
@@ -93,6 +94,20 @@ const formatStatus = (status: string) => {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
+// Utility function to determine if a user with a given role can approve a request
+const canUserApprove = (userRole: UserRole, requestStatus: RemovalStatus): boolean => {
+  const roleStatusMap: Record<UserRole, RemovalStatus[]> = {
+    'LEVEL_1': [],
+    'LEVEL_2': ['PENDING_LEVEL_2'],
+    'LEVEL_3': ['PENDING_LEVEL_3'],
+    'LEVEL_4': ['PENDING_LEVEL_4'],
+    'SECURITY': ['PENDING_SECURITY'],
+    'ADMIN': ['PENDING_LEVEL_2', 'PENDING_LEVEL_3', 'PENDING_LEVEL_4', 'PENDING_SECURITY']
+  };
+  
+  return roleStatusMap[userRole]?.includes(requestStatus) || false;
 };
 
 const Approvals = () => {
@@ -218,7 +233,7 @@ const Approvals = () => {
                       }
                     >
                       <p>Requested by {request.userName}</p>
-                      <p>Department: {request.department}</p>
+                      <p>Department: {request.departmentName}</p>
                       <p>
                         Status:{" "}
                         <span className="text-amber-600 font-medium">

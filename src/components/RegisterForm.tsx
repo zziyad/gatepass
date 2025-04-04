@@ -41,23 +41,14 @@ interface Department {
   name: string;
 }
 
-// Fallback mock departments for development until API is ready
-const mockDepartments: Department[] = [
-  { id: 1, name: "IT Department" },
-  { id: 2, name: "Finance Department" },
-  { id: 3, name: "HR Department" },
-  { id: 4, name: "Operations" },
-  { id: 5, name: "Marketing" },
-  { id: 6, name: "Research & Development" },
-];
-
 // Define validation schema with Zod
 const registerSchema = z.object({
-  fullName: z.string().min(3, "fullName must be at least 3 characters"),
+  fullName: z.string().min(3, "Full name must be at least 3 characters"),
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   departmentId: z.string().min(1, "Department is required"), // Will be converted to number
-  role: z.enum(["EMPLOYEE", "HOD", "FINANCE", "MOD", "SECURITY", "ADMIN"]),
+  position: z.string().min(2, "Position is required"), // Employee's job title
+  role: z.enum(["LEVEL_1", "LEVEL_2", "LEVEL_3", "LEVEL_4", "SECURITY", "ADMIN"]),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -79,7 +70,7 @@ export default function RegisterForm({
   const [apiError, setApiError] = useState<string | null>(null);
 
   // Query to fetch departments
-  const { data: departments = mockDepartments, isLoading: loadingDepartments } = useQuery<Department[]>({
+  const { data: departments = [], isLoading: loadingDepartments } = useQuery<Department[]>({
     queryKey: ["departments"],
     queryFn: async () => {
       try {
@@ -91,13 +82,13 @@ export default function RegisterForm({
           return response.result.response.departments as Department[];
         }
         
-        console.warn("Failed to fetch departments, using mock data");
-        return mockDepartments;
+        console.warn("Failed to fetch departments");
+        return [];
       } catch (err) {
         const error = err as Error;
         console.error("Failed to load departments:", error);
         setApiError("Failed to load departments: " + error.message);
-        return mockDepartments;
+        return [];
       }
     },
     staleTime: 5 * 60 * 1000,
@@ -112,7 +103,8 @@ export default function RegisterForm({
       email: "",
       password: "",
       departmentId: "",
-      role: "EMPLOYEE" // Default role
+      position: "",
+      role: "LEVEL_1" // Default role
     },
   });
 
@@ -136,6 +128,7 @@ export default function RegisterForm({
         email: values.email,
         password: values.password,
         departmentId: parseInt(values.departmentId, 10),
+        position: values.position
       };
       
       // Add role if admin is creating the user
@@ -178,7 +171,8 @@ export default function RegisterForm({
             email: "",
             password: "",
             departmentId: "",
-            role: "EMPLOYEE"
+            position: "",
+            role: "LEVEL_1"
           });
           
           // If queryClient is provided, refresh users list
@@ -310,6 +304,28 @@ export default function RegisterForm({
                   </FormItem>
                 )}
               />
+              
+              {/* Position field */}
+              <FormField
+                control={form.control}
+                name="position"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel htmlFor={`${formId}-position`}>
+                      Position
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        id={`${formId}-position`}
+                        disabled={registerMutation.isPending}
+                        placeholder="e.g., Manager, Engineer, Analyst"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Only show role selector for admin */}
               {adminCreated && (
@@ -330,11 +346,11 @@ export default function RegisterForm({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                          <SelectItem value="HOD">Head of Department</SelectItem>
-                          <SelectItem value="FINANCE">Finance</SelectItem>
-                          <SelectItem value="MOD">Moderator</SelectItem>
-                          <SelectItem value="SECURITY">Security</SelectItem>
+                          <SelectItem value="LEVEL_1">Requester</SelectItem>
+                          <SelectItem value="LEVEL_2">Department Approval</SelectItem>
+                          <SelectItem value="LEVEL_3">Finance Approval</SelectItem>
+                          <SelectItem value="LEVEL_4">Management Approval</SelectItem>
+                          <SelectItem value="SECURITY">Security Approval</SelectItem>
                           <SelectItem value="ADMIN">Administrator</SelectItem>
                         </SelectContent>
                       </Select>

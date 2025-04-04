@@ -1,4 +1,3 @@
-
 import { RemovalRequest, RemovalReason } from "@/types";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +38,7 @@ const RequestDetails: React.FC<RequestDetailsProps> = ({ request, removalReasons
             <div>
               <CardTitle>Removal Request #{request.id.slice(0, 8)}</CardTitle>
               <p className="text-sm text-gray-500 mt-1">
-                Submitted by {request.userName} ({request.department}) on{" "}
+                Submitted by {request.userName} ({request.departmentName}) on{" "}
                 {request.createdAt.toLocaleDateString()}
               </p>
             </div>

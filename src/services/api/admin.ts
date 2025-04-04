@@ -106,10 +106,10 @@ class AdminApi implements AdminApiInterface {
   /**
    * Update an existing user
    */
-  async updateUser(id: number, email: string, role: string, departmentId: number): Promise<ApiResponse> {
+  async updateUser(id: number, email: string, role: string, departmentId: number, position?: string): Promise<ApiResponse> {
     return apiClient.request({
       method: 'user/update',
-      args: { id, email, role, departmentId },
+      args: { id, email, role, departmentId, position },
     });
   }
 

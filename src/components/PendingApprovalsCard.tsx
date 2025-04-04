@@ -8,9 +8,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RemovalRequest } from "@/types";
-import { User } from "@/types";
-import { canUserApprove } from "@/lib/mockData"; // Assuming this helper exists
+import { RemovalRequest, RemovalStatus } from "@/types";
+import { User, UserRole } from "@/types";
+
+// Utility function to determine if a user with a given role can approve a request
+const canUserApprove = (userRole: UserRole, requestStatus: RemovalStatus): boolean => {
+  const roleStatusMap: Record<UserRole, RemovalStatus[]> = {
+    'LEVEL_1': [],
+    'LEVEL_2': ['PENDING_LEVEL_2'],
+    'LEVEL_3': ['PENDING_LEVEL_3'],
+    'LEVEL_4': ['PENDING_LEVEL_4'],
+    'SECURITY': ['PENDING_SECURITY'],
+    'ADMIN': ['PENDING_LEVEL_2', 'PENDING_LEVEL_3', 'PENDING_LEVEL_4', 'PENDING_SECURITY']
+  };
+  
+  return roleStatusMap[userRole]?.includes(requestStatus) || false;
+};
 
 interface PendingApprovalsCardProps {
   user: User | null;

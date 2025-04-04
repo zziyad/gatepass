@@ -20,6 +20,7 @@ export interface RegistrationData {
   password: string;
   role?: UserRole;
   departmentId?: string | number;
+  position?: string;
 }
 
 /**

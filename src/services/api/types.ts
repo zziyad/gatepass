@@ -62,7 +62,7 @@ export interface AdminApiInterface {
   deleteRemovalReason(id: string): Promise<ApiResponse>;
   getUsers(): Promise<ApiResponse>;
   createUser(userData: Record<string, any>): Promise<ApiResponse>;
-  updateUser(id: number, email: string, role: string, departmentId: number): Promise<ApiResponse>;
+  updateUser(id: number, email: string, role: string, departmentId: number, position?: string): Promise<ApiResponse>;
   deleteUser(id: number): Promise<ApiResponse>;
   resetPassword(id: number, newPassword: string): Promise<ApiResponse>;
 } 

@@ -26,13 +26,17 @@ import { useToast } from "@/hooks/use-toast";
 import { User, UserRole } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import RegisterForm from "@/components/RegisterForm";
+import { getRoleDisplayName, getRoleBadgeColor } from "@/utils/roleUtils";
+import { UserCard } from "@/components/UserCard";
 
 // Extended user type with department details
 interface AdminUser {
   id: number;
-  fullname: string;
+  fullName: string;
   email: string;
   role: UserRole;
+  position?: string;
+  departmentName?: string;
   department: {
     id: number;
     name: string;
@@ -43,6 +47,18 @@ interface AdminUser {
 interface Department {
   id: number;
   name: string;
+}
+
+// Convert AdminUser to User for UserCard component
+function adminUserToUser(adminUser: AdminUser): User {
+  return {
+    id: adminUser.id.toString(), // Convert ID to string
+    fullName: adminUser.fullName,
+    email: adminUser.email,
+    departmentName: adminUser.department?.name || "Unknown",
+    position: adminUser.position,
+    role: adminUser.role
+  };
 }
 
 export default function AdminUsersPage() {
@@ -58,6 +74,7 @@ export default function AdminUsersPage() {
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState<UserRole | "">("");
   const [editDepartmentId, setEditDepartmentId] = useState<string>("");
+  const [editPosition, setEditPosition] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>("ALL_ROLES");
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL_DEPARTMENTS");
@@ -122,6 +139,7 @@ export default function AdminUsersPage() {
       setEditEmail(selectedUser.email || "");
       setEditRole(selectedUser.role || "");
       setEditDepartmentId(selectedUser.department?.id ? selectedUser.department.id.toString() : "");
+      setEditPosition(selectedUser.position || "");
     }
   }, [selectedUser, editUserOpen]);
 
@@ -170,13 +188,15 @@ export default function AdminUsersPage() {
       id: number; 
       email: string; 
       role: string; 
-      departmentId: number 
+      departmentId: number;
+      position?: string;
     }) => {
       return api.admin.updateUser(
         data.id, 
         data.email, 
         data.role, 
-        data.departmentId
+        data.departmentId,
+        data.position
       );
     },
     onSuccess: (response) => {
@@ -311,7 +331,8 @@ export default function AdminUsersPage() {
       id: selectedUser.id,
       email: editEmail,
       role: editRole,
-      departmentId: parseInt(editDepartmentId, 10)
+      departmentId: parseInt(editDepartmentId, 10),
+      position: editPosition
     });
   };
 
@@ -321,6 +342,7 @@ export default function AdminUsersPage() {
     setEditEmail(user.email || "");
     setEditRole(user.role || "");
     setEditDepartmentId(user.department?.id ? user.department.id.toString() : "");
+    setEditPosition(user.position || "");
     setEditUserOpen(true);
     setError(null);
   };
@@ -336,7 +358,7 @@ export default function AdminUsersPage() {
     (user) => {
       // Text search filtering
       const matchesSearch = searchQuery === "" || (
-        (user.fullname?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
+        (user.fullName?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
         (user.email?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
         (user.department?.name?.toLowerCase() || "").includes(searchQuery.toLowerCase())
       );
@@ -358,24 +380,6 @@ export default function AdminUsersPage() {
     setSearchQuery("");
     setRoleFilter("ALL_ROLES");
     setDepartmentFilter("ALL_DEPARTMENTS");
-  };
-
-  // Get role badge color
-  const getRoleBadgeColor = (role: UserRole) => {
-    switch (role) {
-      case "ADMIN":
-        return "bg-red-500";
-      case "HOD":
-        return "bg-blue-500";
-      case "FINANCE":
-        return "bg-green-500";
-      case "MOD":
-        return "bg-purple-500";
-      case "SECURITY":
-        return "bg-orange-500";
-      default:
-        return "bg-gray-500";
-    }
   };
 
   return (
@@ -421,11 +425,11 @@ export default function AdminUsersPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL_ROLES">All Roles</SelectItem>
-                  <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                  <SelectItem value="HOD">Head of Department</SelectItem>
-                  <SelectItem value="FINANCE">Finance</SelectItem>
-                  <SelectItem value="MOD">Moderator</SelectItem>
-                  <SelectItem value="SECURITY">Security</SelectItem>
+                  <SelectItem value="LEVEL_1">Requester</SelectItem>
+                  <SelectItem value="LEVEL_2">Department Approval</SelectItem>
+                  <SelectItem value="LEVEL_3">Finance Approval</SelectItem>
+                  <SelectItem value="LEVEL_4">Management Approval</SelectItem>
+                  <SelectItem value="SECURITY">Security Approval</SelectItem>
                   <SelectItem value="ADMIN">Administrator</SelectItem>
                 </SelectContent>
               </Select>
@@ -475,6 +479,7 @@ export default function AdminUsersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Department</TableHead>
+                <TableHead>Position</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -482,25 +487,26 @@ export default function AdminUsersPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10">
+                  <TableCell colSpan={6} className="text-center py-10">
                     Loading users...
                   </TableCell>
                 </TableRow>
               ) : filteredUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10">
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     No users found
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredUsers.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.fullname || "N/A"}</TableCell>
+                    <TableCell className="font-medium">{user.fullName || "N/A"}</TableCell>
                     <TableCell>{user.email || "N/A"}</TableCell>
-                    <TableCell>{user.department?.name || "No Department"}</TableCell>
+                    <TableCell>{user.department?.name || user.departmentName || "No Department"}</TableCell>
+                    <TableCell>{user.position || "N/A"}</TableCell>
                     <TableCell>
                       <Badge className={getRoleBadgeColor(user.role)}>
-                        {user.role || "N/A"}
+                        {getRoleDisplayName(user.role)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-2">
@@ -547,7 +553,7 @@ export default function AdminUsersPage() {
             <DialogHeader>
               <DialogTitle>Reset Password</DialogTitle>
               <DialogDescription>
-                Set a new password for {selectedUser?.fullname}
+                Set a new password for {selectedUser?.fullName}
               </DialogDescription>
             </DialogHeader>
             
@@ -560,30 +566,30 @@ export default function AdminUsersPage() {
             )}
             
             <form onSubmit={handleResetPassword}>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <label htmlFor="new-password" className="text-sm font-medium">
-                    New Password
-                  </label>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                  />
-                </div>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label htmlFor="new-password" className="text-sm font-medium">
+                  New Password
+                </label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                />
               </div>
-              <DialogFooter>
-                <Button 
+            </div>
+            <DialogFooter>
+              <Button 
                   type="button" 
-                  variant="outline" 
-                  onClick={() => setResetPasswordOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
+                variant="outline" 
+                onClick={() => setResetPasswordOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
                   disabled={!newPassword.trim() || resetPasswordMutation.isPending}
                 >
                   {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
@@ -599,7 +605,7 @@ export default function AdminUsersPage() {
             <DialogHeader>
               <DialogTitle>Edit User</DialogTitle>
               <DialogDescription>
-                Update details for {selectedUser?.fullname}
+                Update details for {selectedUser?.fullName}
               </DialogDescription>
             </DialogHeader>
             
@@ -638,11 +644,11 @@ export default function AdminUsersPage() {
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                      <SelectItem value="HOD">Head of Department</SelectItem>
-                      <SelectItem value="FINANCE">Finance</SelectItem>
-                      <SelectItem value="MOD">Moderator</SelectItem>
-                      <SelectItem value="SECURITY">Security</SelectItem>
+                      <SelectItem value="LEVEL_1">Requester</SelectItem>
+                      <SelectItem value="LEVEL_2">Department Approval</SelectItem>
+                      <SelectItem value="LEVEL_3">Finance Approval</SelectItem>
+                      <SelectItem value="LEVEL_4">Management Approval</SelectItem>
+                      <SelectItem value="SECURITY">Security Approval</SelectItem>
                       <SelectItem value="ADMIN">Administrator</SelectItem>
                     </SelectContent>
                   </Select>
@@ -667,6 +673,18 @@ export default function AdminUsersPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label htmlFor="edit-position" className="text-sm font-medium">
+                    Position
+                  </label>
+                  <Input
+                    id="edit-position"
+                    value={editPosition}
+                    onChange={(e) => setEditPosition(e.target.value)}
+                    placeholder="Enter position (e.g., Manager, Engineer)"
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -719,7 +737,7 @@ export default function AdminUsersPage() {
             <DialogHeader>
               <DialogTitle>Delete User</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete {selectedUser?.fullname}? This action cannot be undone.
+                Are you sure you want to delete {selectedUser?.fullName}? This action cannot be undone.
               </DialogDescription>
             </DialogHeader>
             
@@ -750,6 +768,18 @@ export default function AdminUsersPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* User Cards */}
+        <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <h3 className="mb-3 text-lg font-medium">Standard User Card</h3>
+            {users.length > 0 && <UserCard user={adminUserToUser(users[0])} />}
+          </div>
+          <div>
+            <h3 className="mb-3 text-lg font-medium">Compact User Card</h3>
+            {users.length > 0 && <UserCard user={adminUserToUser(users[0])} variant="compact" />}
+          </div>
+        </div>
       </div>
     </AppLayout>
   );

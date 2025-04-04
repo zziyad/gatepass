@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   SidebarMenu,
   SidebarMenuItem,
@@ -10,70 +10,48 @@ import {
   Users,
   Building2,
   FileText,
-  TestTube,
   Home,
 } from "lucide-react";
+import { getAdminRoutes } from "@/routes";
+
+// Map path to icon
+const pathToIcon: Record<string, React.ReactNode> = {
+  "/admin": <Shield className="h-5 w-5 mr-3" />,
+  "/admin/users": <Users className="h-5 w-5 mr-3" />,
+  "/admin/departments": <Building2 className="h-5 w-5 mr-3" />,
+  "/admin/removal-reasons": <FileText className="h-5 w-5 mr-3" />,
+};
 
 const AdminSidebarMenu: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get all admin routes
+  const adminRoutes = getAdminRoutes();
 
   return (
     <SidebarMenu className="py-2">
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/admin")}
-          tooltip="Admin Dashboard"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <Shield className="h-5 w-5 mr-3" />
-          <span>Admin Dashboard</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/admin/users")}
-          tooltip="Manage Users"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <Users className="h-5 w-5 mr-3" />
-          <span>Manage Users</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/admin/departments")}
-          tooltip="Manage Departments"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <Building2 className="h-5 w-5 mr-3" />
-          <span>Manage Departments</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/admin/removal-reasons")}
-          tooltip="Manage Removal Reasons"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <FileText className="h-5 w-5 mr-3" />
-          <span>Manage Reasons</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/api-test")}
-          tooltip="API Test"
-          className="py-3 px-4 hover:bg-gray-100 text-base text-purple-600"
-        >
-          <TestTube className="h-5 w-5 mr-3" />
-          <span>API Test</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+      {adminRoutes.map(route => (
+        <SidebarMenuItem key={route.path}>
+          <SidebarMenuButton
+            onClick={() => navigate(route.path)}
+            tooltip={route.title || route.path}
+            className={`py-3 px-4 hover:bg-gray-100 text-base ${
+              location.pathname === route.path ? 'bg-gray-100 font-medium' : ''
+            }`}
+          >
+            {pathToIcon[route.path] || <FileText className="h-5 w-5 mr-3" />}
+            <span>{route.title || route.path.split('/').pop()}</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+      
+      {/* Return to user dashboard */}
       <SidebarMenuItem>
         <SidebarMenuButton
           onClick={() => navigate("/dashboard")}
           tooltip="Standard Dashboard"
-          className="py-3 px-4 hover:bg-gray-100 text-base text-blue-600"
+          className="py-3 px-4 hover:bg-gray-100 text-base text-blue-600 mt-4"
         >
           <Home className="h-5 w-5 mr-3" />
           <span>Item Removal System</span>

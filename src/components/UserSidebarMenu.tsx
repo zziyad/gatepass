@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   SidebarMenu,
   SidebarMenuItem,
@@ -11,78 +11,48 @@ import {
   FileText,
   ClipboardCheck,
   UserCircle,
-  TestTube,
   Shield, // Keep Shield if needed for the conditional Admin link
 } from "lucide-react";
 import { useAuth } from "@/contexts"; // Import useAuth to check for admin role
+import { getUserRoutes } from "@/routes";
+
+// Map path to icon
+const pathToIcon: Record<string, React.ReactNode> = {
+  "/dashboard": <Home className="h-5 w-5 mr-3" />,
+  "/new-request": <Plus className="h-5 w-5 mr-3" />,
+  "/my-requests": <FileText className="h-5 w-5 mr-3" />,
+  "/approvals": <ClipboardCheck className="h-5 w-5 mr-3" />,
+  "/profile": <UserCircle className="h-5 w-5 mr-3" />,
+};
 
 const UserSidebarMenu: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth(); // Get user to check role
   const isAdmin = user?.role === "ADMIN"; // Check if the current user is admin
+  
+  // Get all user routes
+  const userRoutes = getUserRoutes();
+  
+  // Filter out routes with dynamic parameters (like :id)
+  const navigationRoutes = userRoutes.filter(route => !route.path.includes(':'));
 
   return (
     <SidebarMenu className="py-2">
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/dashboard")}
-          tooltip="Dashboard"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <Home className="h-5 w-5 mr-3" />
-          <span>Dashboard</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/new-request")}
-          tooltip="New Request"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <Plus className="h-5 w-5 mr-3" />
-          <span>New Request</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/my-requests")}
-          tooltip="My Requests"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <FileText className="h-5 w-5 mr-3" />
-          <span>My Requests</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/approvals")}
-          tooltip="Approvals"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <ClipboardCheck className="h-5 w-5 mr-3" />
-          <span>Approvals</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/profile")}
-          tooltip="Profile"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <UserCircle className="h-5 w-5 mr-3" />
-          <span>Profile</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          onClick={() => navigate("/api-test")}
-          tooltip="API Test"
-          className="py-3 px-4 hover:bg-gray-100 text-base"
-        >
-          <TestTube className="h-5 w-5 mr-3" />
-          <span>API Test</span>
-        </SidebarMenuButton>
-      </SidebarMenuItem>
+      {navigationRoutes.map(route => (
+        <SidebarMenuItem key={route.path}>
+          <SidebarMenuButton
+            onClick={() => navigate(route.path)}
+            tooltip={route.title || route.path}
+            className={`py-3 px-4 hover:bg-gray-100 text-base ${
+              location.pathname === route.path ? 'bg-gray-100 font-medium' : ''
+            }`}
+          >
+            {pathToIcon[route.path] || <FileText className="h-5 w-5 mr-3" />}
+            <span>{route.title || route.path.replace('/', '')}</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
       {/* Conditionally show Admin Console link if user is Admin */}
       {isAdmin && (
         <SidebarMenuItem>

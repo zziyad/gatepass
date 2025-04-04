@@ -5,7 +5,7 @@
 /**
  * User roles in the application
  */
-export type UserRole = 'EMPLOYEE' | 'HOD' | 'FINANCE' | 'MOD' | 'SECURITY' | 'ADMIN';
+export type UserRole = 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'SECURITY' | 'ADMIN';
 
 /**
  * Base user properties
@@ -20,9 +20,11 @@ export interface BaseUser {
  * Client-side user model
  */
 export interface User extends BaseUser {
-  id: string;
-  name: string;
-  department: string;
+  id: string | number;
+  fullName: string;
+  department?: string;
+  departmentName?: string;
+  position?: string;
 }
 
 /**
@@ -30,10 +32,12 @@ export interface User extends BaseUser {
  */
 export interface ApiUser extends BaseUser {
   id: number;
-  name: string;
+  fullName: string;
+  position?: string;
   departmentId?: number;
   department?: {
     id: number;
     name: string;
   };
+  departmentName?: string;
 } 

@@ -7,7 +7,6 @@ import { v4 as uuidv4 } from 'uuid';
 interface ApiClientConfig {
   baseUrl: string;
   defaultHeaders?: Record<string, string>;
-  useMockApi?: boolean;
 }
 
 /**
@@ -22,12 +21,11 @@ const defaultConfig: ApiClientConfig = {
   baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:8001/api',
   defaultHeaders: {
     'Content-Type': 'application/json',
-  },
-  useMockApi: import.meta.env.VITE_USE_MOCK_API === 'true'
+  }
 };
 
 /**
- * Enhanced API client with middleware support, error handling, and mock capabilities
+ * Enhanced API client with middleware support and error handling
  */
 export class ApiClient {
   private config: ApiClientConfig;

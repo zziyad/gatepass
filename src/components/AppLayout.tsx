@@ -15,6 +15,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
 import AdminSidebarMenu from "./AdminSidebarMenu"; // Import new component
 import UserSidebarMenu from "./UserSidebarMenu"; // Import new component
+import { getRoleDisplayName } from "@/utils/roleUtils";
+import { UserCard } from "./UserCard";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -88,19 +90,11 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
         {/* Sidebar */}
         <Sidebar className="border-r shadow-sm bg-white">
-          <SidebarHeader className="flex flex-col gap-2 p-5 border-b">
-            <h2 className="text-xl font-bold">
+          <SidebarHeader className="p-4 border-b">
+            <h2 className="text-xl font-bold px-2 mb-4">
               {isAdmin ? "Admin Console" : "Item Removal System"}
             </h2>
-            <div className="text-sm text-gray-700">
-              <div className="font-medium">{user.name}</div>
-              <div className="text-xs uppercase tracking-wide text-gray-500">
-                <span className={isAdmin ? "text-red-500 font-semibold" : ""}>
-                  {user.role}
-                </span>{" "}
-                • {user.department}
-              </div>
-            </div>
+            <UserCard user={user} className="shadow-sm" />
           </SidebarHeader>
           <SidebarContent>
             {/* Render the appropriate menu component based on user role */}

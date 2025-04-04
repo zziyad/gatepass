@@ -1,6 +1,6 @@
 import { User } from '@/types/user';
 import { ApiUser } from '@/types/user';
-import { adaptApiUserToUser } from '@/adapters/userAdapter';
+import { adaptApiUserToUser, userToApiUser } from '@/adapters/userAdapter';
 
 /**
  * Convert API user data to our application User model
@@ -10,14 +10,6 @@ export function apiUserToUser(apiUser: ApiUser): User {
 }
 
 /**
- * Convert our application User model to API user data
+ * Re-export the userToApiUser function for consistency
  */
-export function userToApiUser(user: User): Partial<ApiUser> {
-  return {
-    id: parseInt(user.id, 10),
-    email: user.email,
-    role: user.role,
-    name: user.name,
-    // Department is handled differently in the API, so we don't convert it directly
-  };
-} 
+export { userToApiUser }; 

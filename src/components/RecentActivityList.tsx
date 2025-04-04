@@ -20,9 +20,32 @@ const RecentActivityList = ({
 }: RecentActivityListProps) => {
   const navigate = useNavigate();
 
-  const sortedRequests = requests
-    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+  // Safely sort requests by updated date
+  const sortedRequests = [...requests]
+    .sort((a, b) => {
+      // Check if updatedAt is a Date object or needs to be converted
+      const dateA = a.updatedAt instanceof Date ? a.updatedAt : new Date(a.updatedAt);
+      const dateB = b.updatedAt instanceof Date ? b.updatedAt : new Date(b.updatedAt);
+      
+      return dateB.getTime() - dateA.getTime();
+    })
     .slice(0, 5);
+
+  const formatDate = (date: Date | string): string => {
+    try {
+      if (date instanceof Date) {
+        return date.toLocaleDateString();
+      } else if (typeof date === 'string') {
+        // Try to convert string date to Date object
+        return new Date(date).toLocaleDateString();
+      } else {
+        return 'Unknown date';
+      }
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return 'Invalid date';
+    }
+  };
 
   return (
     <Card className="shadow-sm border-t-2 border-t-purple-100">
@@ -79,7 +102,7 @@ const RecentActivityList = ({
                         : "text-xs text-gray-400"
                     }
                   >
-                    Updated: {request.updatedAt.toLocaleDateString()}
+                    Updated: {formatDate(request.updatedAt)}
                   </p>
                 </div>
                 <Button

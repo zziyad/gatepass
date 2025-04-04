@@ -1,6 +1,6 @@
-export type UserRole = 'EMPLOYEE' | 'HOD' | 'FINANCE' | 'MOD' | 'SECURITY' | 'ADMIN';
+export type UserRole = 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'SECURITY' | 'ADMIN';
 
-export type RemovalStatus = 'DRAFT' | 'PENDING_HOD' | 'PENDING_FINANCE' | 'PENDING_MOD' | 'PENDING_SECURITY' | 'APPROVED' | 'REJECTED';
+export type RemovalStatus = 'DRAFT' | 'PENDING_LEVEL_2' | 'PENDING_LEVEL_3' | 'PENDING_LEVEL_4' | 'PENDING_SECURITY' | 'APPROVED' | 'REJECTED';
 
 export type RemovalTerm = 'RETURNABLE' | 'NON_RETURNABLE';
 
@@ -15,10 +15,12 @@ export interface Image {
 }
 
 export interface User {
-  id: string; // Converted from number for compatibility
-  name: string;
+  id: string | number; // Allow both string and number types
+  fullName: string;
   email: string;
-  department: string; // Just the name for display
+  department?: string; // Make optional to support departmentName pattern
+  departmentName?: string; // Some API responses use this format instead
+  position?: string;
   role: UserRole;
 }
 
@@ -26,6 +28,8 @@ export interface User {
 export interface ApiUser {
   id: number;
   email: string;
+  fullName: string;
+  position?: string;
   role: UserRole;
   departmentId: number;
   department?: {
@@ -35,7 +39,7 @@ export interface ApiUser {
 }
 
 export interface Approval {
-  stage: 'HOD' | 'FINANCE' | 'MOD' | 'SECURITY';
+  stage: 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'SECURITY';
   approved: boolean;
   signature?: string;
   rejectionReason?: string;
@@ -47,7 +51,7 @@ export interface RemovalRequest {
   id: string;
   userId: string;
   userName: string;
-  department: string;
+  departmentName: string;
   term: RemovalTerm;
   dateFrom: Date;
   dateTo?: Date;
