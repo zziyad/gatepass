@@ -20,7 +20,7 @@ class AdminApi implements AdminApiInterface {
    */
   async createDepartment(name: string): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/department/adddep',
+      method: 'admin/department/add',
       args: { name },
     });
   }
@@ -30,7 +30,7 @@ class AdminApi implements AdminApiInterface {
    */
   async updateDepartment(id: number, name: string): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/department/upddep',
+      method: 'admin/department/update',
       args: { id, name },
     });
   }
@@ -40,7 +40,7 @@ class AdminApi implements AdminApiInterface {
    */
   async deleteDepartment(id: number): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'admin/department/deldep',
+      method: 'admin/department/delete',
       args: { id },
     });
   }

@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   UserCircle,
   Shield, // Keep Shield if needed for the conditional Admin link
+  List, // Add List icon for removals
 } from "lucide-react";
 import { useAuth } from "@/contexts"; // Import useAuth to check for admin role
 import { getUserRoutes } from "@/routes";
@@ -21,6 +22,7 @@ const pathToIcon: Record<string, React.ReactNode> = {
   "/dashboard": <Home className="h-5 w-5 mr-3" />,
   "/new-request": <Plus className="h-5 w-5 mr-3" />,
   "/my-requests": <FileText className="h-5 w-5 mr-3" />,
+  "/removals": <List className="h-5 w-5 mr-3" />,
   "/approvals": <ClipboardCheck className="h-5 w-5 mr-3" />,
   "/profile": <UserCircle className="h-5 w-5 mr-3" />,
 };
