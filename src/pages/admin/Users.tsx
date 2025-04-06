@@ -27,7 +27,6 @@ import { User, UserRole } from "@/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import RegisterForm from "@/components/RegisterForm";
 import { getRoleDisplayName, getRoleBadgeColor } from "@/utils/roleUtils";
-import { UserCard } from "@/components/UserCard";
 
 // Extended user type with department details
 interface AdminUser {
@@ -769,17 +768,7 @@ export default function AdminUsersPage() {
           </DialogContent>
         </Dialog>
 
-        {/* User Cards */}
-        <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <h3 className="mb-3 text-lg font-medium">Standard User Card</h3>
-            {users.length > 0 && <UserCard user={adminUserToUser(users[0])} />}
-          </div>
-          <div>
-            <h3 className="mb-3 text-lg font-medium">Compact User Card</h3>
-            {users.length > 0 && <UserCard user={adminUserToUser(users[0])} variant="compact" />}
-          </div>
-        </div>
+
       </div>
     </AppLayout>
   );

@@ -33,14 +33,15 @@ export function UserCard({ user, className = "", variant = "default" }: UserCard
 
   if (variant === "inline") {
     return (
-      <div className={`flex items-center gap-2 ${className}`}>
-        <Avatar className="h-6 w-6">
+      <div className={`flex items-center gap-3 ${className}`}>
+        <Avatar className="h-8 w-8">
           <AvatarFallback className="bg-primary/10 text-primary text-xs">
             {initials}
           </AvatarFallback>
         </Avatar>
-        <div className="flex flex-col">
-          <span className="text-sm font-medium leading-none">{fullName}</span>
+        <div className="flex flex-col justify-center">
+          <span className="text-sm font-semibold leading-tight text-foreground">{fullName}</span>
+          <span className="text-xs text-muted-foreground">{user.email}</span>
           <span
             className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] leading-none font-medium mt-1 ${getRoleBadgeColor(
               user.role
@@ -56,26 +57,37 @@ export function UserCard({ user, className = "", variant = "default" }: UserCard
   if (variant === "compact") {
     return (
       <Card className={`overflow-hidden ${className}`}>
-        <CardContent className="p-4 flex items-center space-x-4">
-          <Avatar>
-            <AvatarFallback className="bg-primary/10 text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium truncate">{fullName}</h3>
-            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-            <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium mt-1 ${getRoleBadgeColor(
-                user.role
-              )}`}
-            >
-              {getRoleDisplayName(user.role)}
-            </span>
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4 mb-3">
+            <Avatar className="h-10 w-10 flex-shrink-0">
+              <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <h3 className="text-base font-semibold text-primary">{fullName}</h3>
+          </div>
+          
+          <p className="text-xs text-primary mb-3">{user.email}</p>
+          
+          <div className="space-y-1.5">
+            <p className="text-xs">
+              <span className="text-muted-foreground">Department: </span>
+              <span className="font-medium">{departmentDisplay}</span>
+            </p>
+            
             {user.position && (
-              <p className="text-xs text-muted-foreground mt-1 truncate">{user.position}</p>
+              <p className="text-xs">
+                <span className="text-muted-foreground">Position: </span>
+                <span className="font-medium">{user.position}</span>
+              </p>
             )}
-            <p className="text-xs text-muted-foreground truncate">{departmentDisplay}</p>
+            
+            <p className="text-xs">
+              <span className="text-muted-foreground">Role: </span>
+              <span className={`inline-flex items-center font-medium ${getRoleBadgeColor(user.role)}`}>
+                {getRoleDisplayName(user.role)}
+              </span>
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -84,39 +96,35 @@ export function UserCard({ user, className = "", variant = "default" }: UserCard
 
   return (
     <Card className={`overflow-hidden ${className}`}>
-      <CardHeader className="bg-gradient-to-r from-primary-50 to-primary-100 pb-2">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-12 w-12 border-2 border-white">
+      <CardContent className="p-5">
+        <div className="flex items-center gap-4 mb-3">
+          <Avatar className="h-14 w-14 border-2 border-primary/10">
             <AvatarFallback className="bg-primary/10 text-primary">
               {initials}
             </AvatarFallback>
           </Avatar>
-          <CardTitle className="flex flex-col">
-            <span className="text-xl font-bold truncate">{fullName}</span>
-            <span className="text-sm font-normal text-muted-foreground">
-              {user.email}
-            </span>
-          </CardTitle>
+          <h2 className="text-lg font-bold text-primary">{fullName}</h2>
         </div>
-      </CardHeader>
-      <CardContent className="p-4">
-        <div className="space-y-3">
-          <div className="grid grid-cols-[1fr_2fr] items-center gap-2">
+        
+        <p className="text-sm text-primary/80 mb-4">{user.email}</p>
+        
+        <div className="space-y-2">
+          <div className="flex flex-col">
             <span className="text-sm font-medium text-muted-foreground">Department:</span>
             <span className="text-sm font-semibold">{departmentDisplay}</span>
           </div>
 
           {user.position && (
-            <div className="grid grid-cols-[1fr_2fr] items-center gap-2">
+            <div className="flex flex-col">
               <span className="text-sm font-medium text-muted-foreground">Position:</span>
               <span className="text-sm font-semibold">{user.position}</span>
             </div>
           )}
 
-          <div className="grid grid-cols-[1fr_2fr] items-center gap-2">
+          <div className="flex flex-col">
             <span className="text-sm font-medium text-muted-foreground">Role:</span>
             <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getRoleBadgeColor(
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium mt-1 ${getRoleBadgeColor(
                 user.role
               )}`}
             >

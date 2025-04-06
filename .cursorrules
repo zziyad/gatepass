@@ -4,3 +4,34 @@ Give complete, working solutions—end-to-end code, ready for production.
 Plan smart—get the task and context fully before building. Keep it structured.
 Stay directory-aware—check paths, put files where they belong (e.g., /components, /utils), run commands from project root.
 Optional: Flag edge cases or tradeoffs quick if they matter.
+
+# GatePass Project Intelligence
+
+## Project Structure
+- All UI components should go in `src/components/` directory
+- Base UI components are in `src/components/ui/` (Shadcn components)
+- Feature-specific components go in `src/components/` root
+- Services for API calls go in `src/services/`
+- Context providers go in `src/contexts/`
+- Pages go in `src/pages/` with subdirectories for admin pages
+
+## Code Patterns
+- Use Typescript with proper typing for all components and functions
+- Leverage React Hook Form with Zod validation for forms
+- Use React Context for global state management
+- Follow the existing pattern of using adapters for data transformation
+- Use React Query for server state management
+- Utilize Shadcn/UI component library for consistent UI
+
+## Field Naming Conventions
+- Frontend and backend field names must align exactly
+- Use camelCase for all field names
+- Pay special attention to date fields: `dateFrom`, `dateTo` 
+- Removal terms should use `removalTerms` field name (not "term")
+
+## Workflow Considerations
+- The application follows a sequential approval process
+- User roles are defined as LEVEL_1, LEVEL_2, etc. rather than by function
+- Forms should conditionally show fields based on removal type (returnable vs non-returnable)
+- Handle image uploads with proper preview functionality
+- Date handling is particularly important for returnable items

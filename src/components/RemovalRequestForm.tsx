@@ -17,7 +17,13 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { createRemovalRequest } from "@/api/removalService";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/services/api";
-import { Department } from "@/contexts/ConfigContext";
+import { UserCard } from "@/components/UserCard";
+
+// Local interface for Department from API
+interface Department {
+  id: number | string;
+  name: string;
+}
 
 interface ItemDescription {
   id: string;
@@ -72,7 +78,23 @@ const RemovalRequestForm = () => {
         // Fetch departments
         const deptResponse = await api.admin.getDepartments();
         if (deptResponse.result?.status === 'success' && deptResponse.result.response?.departments) {
-          setDepartments(deptResponse.result.response.departments);
+          const departments = deptResponse.result.response.departments;
+          setDepartments(departments);
+          
+          // If user has department info, find and set it
+          if (user && (user.department || user.departmentName)) {
+            const userDeptName = user.departmentName || user.department;
+            const userDept = departments.find(
+              dept => dept.name.toLowerCase() === userDeptName?.toLowerCase()
+            );
+            
+            if (userDept) {
+              setFormData(prev => ({
+                ...prev,
+                departmentId: userDept.id
+              }));
+            }
+          }
         }
         
         // Fetch removal reasons
@@ -364,6 +386,14 @@ const RemovalRequestForm = () => {
     <div className={isMobile ? "w-full px-2" : "max-w-3xl mx-auto"}>
       <Card className="shadow-lg border-t-4 border-t-primary">
         <CardContent className={isMobile ? "p-4" : "p-8"}>
+          {/* User information card */}
+          {user && (
+            <div className="mb-6">
+              <h3 className={`font-medium mb-2 ${isMobile ? "text-base" : "text-lg"}`}>Request Creator Information</h3>
+              <UserCard user={user} variant="compact" />
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit}>
             {step === 1 && (
               <div className="space-y-5">
@@ -449,32 +479,22 @@ const RemovalRequestForm = () => {
 
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <Label htmlFor="employee" className={isMobile ? "text-sm font-medium" : "text-base font-medium"}>Employee Name</Label>
-                  <Input
-                    id="employee"
-                    value={formData.employee}
-                    onChange={(e) => handleChange("employee", e.target.value)}
-                    className="mt-2 h-11"
-                    placeholder="Enter employee name"
-                  />
+                  <div className="flex items-center mt-2 h-11 px-3 border rounded-md bg-gray-100">
+                    <span className="text-sm text-gray-700">{formData.employee}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">This field is auto-populated and cannot be changed</p>
                 </div>
                 
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <Label htmlFor="departmentId" className={isMobile ? "text-sm font-medium" : "text-base font-medium"}>Department</Label>
-                  <Select
-                    value={formData.departmentId === 0 ? "" : formData.departmentId.toString()}
-                    onValueChange={(value) => handleChange("departmentId", parseInt(value))}
-                  >
-                    <SelectTrigger className="mt-2 h-11">
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.id.toString()}>
-                          {dept.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center mt-2 h-11 px-3 border rounded-md bg-gray-100">
+                    <span className="text-sm text-gray-700">
+                      {formData.departmentId > 0 
+                        ? departments.find(d => String(d.id) === String(formData.departmentId))?.name 
+                        : "Loading department..."}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">This field is auto-populated and cannot be changed</p>
                 </div>
 
                 <Button 

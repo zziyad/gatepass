@@ -128,7 +128,7 @@ class AdminApi implements AdminApiInterface {
    */
   async resetPassword(id: number, newPassword: string): Promise<ApiResponse> {
     return apiClient.request({
-      method: 'user/resetpassword',
+      method: 'user/passwordreset',
       args: { id, newPassword },
     });
   }
