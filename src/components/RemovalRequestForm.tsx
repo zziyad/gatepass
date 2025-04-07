@@ -14,21 +14,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, X, Plus, Trash2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { createRemovalRequest } from "@/api/removalService";
+import { createRemovalRequest, RemovalItem } from "@/api/removalService";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/services/api";
-import { UserCard } from "@/components/UserCard";
 
-// Local interface for Department from API
-interface Department {
-  id: number | string;
-  name: string;
-}
-
-interface ItemDescription {
-  id: string;
-  description: string;
+interface FormItem extends Omit<RemovalItem, 'id'> {
+  id: string; // Local ID for form state management only
   removalReasonId: number;
+  description: string;
   customReason?: string;
 }
 
@@ -38,7 +31,7 @@ interface FormData {
   dateTo?: Date;
   employee: string;
   departmentId: number;
-  itemDescriptions: ItemDescription[];
+  items: FormItem[];
   images: string[]; // Base64 encoded strings
 }
 
@@ -47,16 +40,17 @@ const RemovalRequestForm = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [removalReasons, setRemovalReasons] = useState<RemovalReason[]>([]);
   const [loading, setLoading] = useState(true);
+  const [departmentId, setDepartmentId] = useState<number>(0);
   
+  // Set initial form data
   const [formData, setFormData] = useState<FormData>({
     removalTerms: "returnable",
     dateFrom: new Date(),
     employee: user?.fullName || "",
-    departmentId: 0,
-    itemDescriptions: [
+    departmentId: 0, // Will be updated once we fetch department information
+    items: [
       {
         id: crypto.randomUUID(),
         description: "",
@@ -69,29 +63,27 @@ const RemovalRequestForm = () => {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localImages, setLocalImages] = useState<{id: string, url: string}[]>([]);
-  
-  // Fetch departments and removal reasons from the API
+
+  // Fetch removal reasons and determine department ID
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch departments
-        const deptResponse = await api.admin.getDepartments();
-        if (deptResponse.result?.status === 'success' && deptResponse.result.response?.departments) {
-          const departments = deptResponse.result.response.departments;
-          setDepartments(departments);
-          
-          // If user has department info, find and set it
-          if (user && (user.department || user.departmentName)) {
-            const userDeptName = user.departmentName || user.department;
+        // Get department ID if needed
+        if (user?.departmentName) {
+          const deptResponse = await api.admin.getDepartments();
+          if (deptResponse.result?.status === 'success' && deptResponse.result.response?.departments) {
+            const departments = deptResponse.result.response.departments;
             const userDept = departments.find(
-              dept => dept.name.toLowerCase() === userDeptName?.toLowerCase()
+              dept => dept.name.toLowerCase() === user.departmentName?.toLowerCase()
             );
             
             if (userDept) {
+              const deptId = typeof userDept.id === 'string' ? parseInt(userDept.id) : userDept.id;
+              setDepartmentId(deptId);
               setFormData(prev => ({
                 ...prev,
-                departmentId: userDept.id
+                departmentId: deptId
               }));
             }
           }
@@ -99,26 +91,15 @@ const RemovalRequestForm = () => {
         
         // Fetch removal reasons
         const reasonsResponse = await api.admin.getRemovalReasons();
-        console.log("Full reasons response:", reasonsResponse);
         
         if (reasonsResponse.result?.status === 'success' && reasonsResponse.result.response?.reasons) {
-          const reasons = reasonsResponse.result.response.reasons;
-          console.log("Loaded removal reasons:", reasons);
-          
-          // Log the structure of the first reason (if available)
-          if (reasons.length > 0) {
-            console.log("First reason structure:", reasons[0]);
-            console.log("First reason ID type:", typeof reasons[0].id);
-            console.log("First reason name:", reasons[0].name);
-          }
-          
-          setRemovalReasons(reasons);
+          setRemovalReasons(reasonsResponse.result.response.reasons);
         }
       } catch (error) {
         console.error('Error fetching form data:', error);
         toast({
           title: "Error",
-          description: "Failed to load departments and removal reasons",
+          description: "Failed to load form data",
           variant: "destructive"
         });
       } finally {
@@ -127,7 +108,7 @@ const RemovalRequestForm = () => {
     };
     
     fetchData();
-  }, []);
+  }, [user]);
   
   const handleChange = (
     field: keyof FormData,
@@ -135,36 +116,19 @@ const RemovalRequestForm = () => {
   ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     
-    if (field === "removalTerms") {
-      if (value === "returnable") {
-        setFormData((prev) => ({ 
-          ...prev, 
-          removalTerms: "returnable"
-        }));
-      } else {
-        setFormData((prev) => ({ 
-          ...prev, 
-          removalTerms: "non-returnable", 
-          dateTo: undefined,
-        }));
-      }
+    if (field === "removalTerms" && value === "non-returnable") {
+      setFormData((prev) => ({ 
+        ...prev, 
+        removalTerms: "non-returnable", 
+        dateTo: undefined,
+      }));
     }
   };
 
-  const handleItemDescriptionChange = (id: string, field: keyof ItemDescription, value: any) => {
-    // Special handling for removal reason changes
-    if (field === "removalReasonId") {
-      console.log(`Reason changed to: ${value}`);
-      // Convert to string to ensure proper comparison
-      const strValue = value.toString();
-      const reason = removalReasons.find(r => r.id.toString() === strValue);
-      console.log(`Found reason:`, reason);
-      console.log(`Is Other:`, reason?.name?.toUpperCase() === "OTHER");
-    }
-    
+  const handleItemChange = (id: string, field: keyof FormItem, value: any) => {
     setFormData(prev => ({
       ...prev,
-      itemDescriptions: prev.itemDescriptions.map(item => {
+      items: prev.items.map(item => {
         if (item.id === id) {
           return { ...item, [field]: value };
         }
@@ -173,11 +137,11 @@ const RemovalRequestForm = () => {
     }));
   };
 
-  const addItemDescription = () => {
+  const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      itemDescriptions: [
-        ...prev.itemDescriptions,
+      items: [
+        ...prev.items,
         {
           id: crypto.randomUUID(),
           description: "",
@@ -187,11 +151,11 @@ const RemovalRequestForm = () => {
     }));
   };
 
-  const removeItemDescription = (id: string) => {
-    if (formData.itemDescriptions.length === 1) {
+  const removeItem = (id: string) => {
+    if (formData.items.length === 1) {
       toast({
         title: "Cannot Remove",
-        description: "At least one item description is required",
+        description: "At least one item is required",
         variant: "destructive"
       });
       return;
@@ -199,28 +163,15 @@ const RemovalRequestForm = () => {
 
     setFormData(prev => ({
       ...prev,
-      itemDescriptions: prev.itemDescriptions.filter(item => item.id !== id)
+      items: prev.items.filter(item => item.id !== id)
     }));
   };
 
   const isReasonOther = (reasonId: number): boolean => {
     if (!reasonId) return false;
     
-    // Convert to string to ensure proper comparison
-    const strId = reasonId.toString();
-    console.log("Checking if reason is OTHER:", strId, removalReasons);
-    
-    // Find the reason by ID (as string)
-    const reason = removalReasons.find(r => r.id.toString() === strId);
-    console.log("Found reason for OTHER check:", reason);
-    
-    // If found, check if it's "OTHER" (case insensitive)
-    if (reason && reason.name) {
-      const upperName = reason.name.toUpperCase();
-      return upperName === "OTHER";
-    }
-    
-    return false;
+    const reason = removalReasons.find(r => r.id.toString() === reasonId.toString());
+    return reason?.name?.toUpperCase() === "OTHER";
   };
   
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -232,11 +183,10 @@ const RemovalRequestForm = () => {
         reader.onload = (event) => {
           if (event.target?.result) {
             const imageUrl = event.target.result as string;
+            const imageId = `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            
             // Add to local images for display
-            setLocalImages((prev) => [
-              ...prev,
-              { id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, url: imageUrl }
-            ]);
+            setLocalImages((prev) => [...prev, { id: imageId, url: imageUrl }]);
             
             // Add base64 string to form data
             setFormData((prev) => ({
@@ -264,32 +214,31 @@ const RemovalRequestForm = () => {
     }
   };
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate form data
-    const hasEmptyDescriptions = formData.itemDescriptions.some(item => !item.description);
+  const validateForm = (): boolean => {
+    // Validate items
+    const hasEmptyDescriptions = formData.items.some(item => !item.description);
     if (hasEmptyDescriptions) {
       toast({
         title: "Missing Information",
         description: "Please provide all item descriptions",
         variant: "destructive"
       });
-      return;
+      return false;
     }
     
-    const hasInvalidReason = formData.itemDescriptions.some(item => item.removalReasonId === 0);
+    // Validate reasons
+    const hasInvalidReason = formData.items.some(item => item.removalReasonId === 0);
     if (hasInvalidReason) {
       toast({
         title: "Missing Information",
         description: "Please select a removal reason for each item",
         variant: "destructive"
       });
-      return;
+      return false;
     }
     
     // Check if any "Other" reason requires custom text
-    const missingCustomReason = formData.itemDescriptions.some(
+    const missingCustomReason = formData.items.some(
       item => isReasonOther(item.removalReasonId) && !item.customReason
     );
     
@@ -299,7 +248,7 @@ const RemovalRequestForm = () => {
         description: "Please provide a custom reason for all items with 'Other' selected",
         variant: "destructive"
       });
-      return;
+      return false;
     }
     
     // Validate dateTo for returnable items
@@ -309,30 +258,36 @@ const RemovalRequestForm = () => {
         description: "Please select a return date for returnable items",
         variant: "destructive"
       });
-      return;
+      return false;
     }
+    
+    return true;
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
     
     setIsSubmitting(true);
     
     try {
-      // For now we'll use the first item for backward compatibility
-      // In a future update, the API should be modified to accept multiple items
-      const primaryItem = formData.itemDescriptions[0];
-      
-      // Format the request according to the API contract
+      // Format the request according to the new API contract with multiple items
       const requestData = {
         removalTerms: formData.removalTerms,
         dateFrom: formData.dateFrom.toISOString(),
         dateTo: formData.dateTo ? formData.dateTo.toISOString() : undefined,
         employee: formData.employee,
         departmentId: formData.departmentId,
-        itemDescription: formData.itemDescriptions.map(item => item.description).join(" | "),
-        removalReasonId: primaryItem.removalReasonId,
-        customReason: primaryItem.customReason,
+        items: formData.items.map(item => ({
+          description: item.description,
+          removalReasonId: item.removalReasonId,
+          customReason: item.customReason
+        })),
         images: formData.images
       };
       
-      // Send the request to the API using our service
+      // Send the request to the API
       const response = await createRemovalRequest(requestData);
       
       if (response.result?.status === 'success') {
@@ -386,14 +341,6 @@ const RemovalRequestForm = () => {
     <div className={isMobile ? "w-full px-2" : "max-w-3xl mx-auto"}>
       <Card className="shadow-lg border-t-4 border-t-primary">
         <CardContent className={isMobile ? "p-4" : "p-8"}>
-          {/* User information card */}
-          {user && (
-            <div className="mb-6">
-              <h3 className={`font-medium mb-2 ${isMobile ? "text-base" : "text-lg"}`}>Request Creator Information</h3>
-              <UserCard user={user} variant="compact" />
-            </div>
-          )}
-          
           <form onSubmit={handleSubmit}>
             {step === 1 && (
               <div className="space-y-5">
@@ -489,9 +436,7 @@ const RemovalRequestForm = () => {
                   <Label htmlFor="departmentId" className={isMobile ? "text-sm font-medium" : "text-base font-medium"}>Department</Label>
                   <div className="flex items-center mt-2 h-11 px-3 border rounded-md bg-gray-100">
                     <span className="text-sm text-gray-700">
-                      {formData.departmentId > 0 
-                        ? departments.find(d => String(d.id) === String(formData.departmentId))?.name 
-                        : "Loading department..."}
+                      {user?.departmentName || "Not Assigned"}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">This field is auto-populated and cannot be changed</p>
@@ -509,18 +454,18 @@ const RemovalRequestForm = () => {
             
             {step === 2 && (
               <div className="space-y-5">
-                <h2 className={isMobile ? "text-xl font-bold mb-4" : "text-2xl font-bold mb-6"}>Item Description</h2>
+                <h2 className={isMobile ? "text-xl font-bold mb-4" : "text-2xl font-bold mb-6"}>Items</h2>
                 
-                {formData.itemDescriptions.map((item, index) => (
+                {formData.items.map((item, index) => (
                   <div key={item.id} className="bg-gray-50 p-4 rounded-lg mb-4 border-l-4 border-primary">
                     <div className="flex justify-between items-center mb-3">
                       <h3 className="font-medium">Item {index + 1}</h3>
-                      {formData.itemDescriptions.length > 1 && (
+                      {formData.items.length > 1 && (
                         <Button 
                           type="button" 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => removeItemDescription(item.id)}
+                          onClick={() => removeItem(item.id)}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
@@ -534,7 +479,7 @@ const RemovalRequestForm = () => {
                       <Textarea
                         id={`description-${item.id}`}
                         value={item.description}
-                        onChange={(e) => handleItemDescriptionChange(item.id, "description", e.target.value)}
+                        onChange={(e) => handleItemChange(item.id, "description", e.target.value)}
                         className="mt-2 min-h-[100px]"
                         placeholder="Provide a detailed description of the item"
                       />
@@ -546,67 +491,43 @@ const RemovalRequestForm = () => {
                       </Label>
                       <Select
                         value={item.removalReasonId === 0 ? "" : item.removalReasonId.toString()}
-                        onValueChange={(value) => handleItemDescriptionChange(item.id, "removalReasonId", parseInt(value))}
+                        onValueChange={(value) => handleItemChange(item.id, "removalReasonId", parseInt(value))}
                       >
                         <SelectTrigger className="mt-2 h-11" id={`reason-${item.id}`}>
                           <SelectValue placeholder="Select reason" />
                         </SelectTrigger>
                         <SelectContent>
-                          {removalReasons.map((reason) => {
-                            // Log each reason for debugging
-                            console.log(`Reason option: id=${reason.id}, name=${reason.name}`);
-                            
-                            return (
-                              <SelectItem key={reason.id} value={reason.id.toString()}>
-                                {reason.name}
-                              </SelectItem>
-                            );
-                          })}
+                          {removalReasons.map((reason) => (
+                            <SelectItem key={reason.id} value={reason.id.toString()}>
+                              {reason.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
                     
                     {/* Custom reason field for "OTHER" */}
-                    {(() => {
-                      // Check if a reason is selected
-                      if (!item.removalReasonId) return null;
-                      
-                      // Convert reason ID to string for comparison
-                      const reasonId = item.removalReasonId.toString();
-                      console.log("Rendering reason check:", reasonId);
-                      
-                      // Find the reason by ID
-                      const reason = removalReasons.find(r => r.id.toString() === reasonId);
-                      console.log("Found reason for render:", reason);
-                      
-                      // Check if it's "OTHER"
-                      if (reason && reason.name && reason.name.toUpperCase() === "OTHER") {
-                        console.log("Rendering custom reason field");
-                        return (
-                          <div className="mb-2">
-                            <Label htmlFor={`customReason-${item.id}`} className={isMobile ? "text-sm font-medium" : "text-base font-medium"}>
-                              Custom Reason
-                            </Label>
-                            <Textarea
-                              id={`customReason-${item.id}`}
-                              value={item.customReason || ""}
-                              onChange={(e) => handleItemDescriptionChange(item.id, "customReason", e.target.value)}
-                              className="mt-2 min-h-[80px]"
-                              placeholder="Please specify the reason"
-                            />
-                          </div>
-                        );
-                      }
-                      
-                      return null;
-                    })()}
+                    {isReasonOther(item.removalReasonId) && (
+                      <div className="mb-2">
+                        <Label htmlFor={`customReason-${item.id}`} className={isMobile ? "text-sm font-medium" : "text-base font-medium"}>
+                          Custom Reason
+                        </Label>
+                        <Textarea
+                          id={`customReason-${item.id}`}
+                          value={item.customReason || ""}
+                          onChange={(e) => handleItemChange(item.id, "customReason", e.target.value)}
+                          className="mt-2 min-h-[80px]"
+                          placeholder="Please specify the reason"
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 
                 <Button 
                   type="button" 
                   variant="outline" 
-                  onClick={addItemDescription}
+                  onClick={addItem}
                   className="w-full flex items-center justify-center"
                 >
                   <Plus className="mr-2 h-4 w-4" /> Add Another Item

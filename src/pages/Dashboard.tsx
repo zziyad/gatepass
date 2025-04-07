@@ -7,10 +7,22 @@ import MyRequestsSummaryCard from "@/components/MyRequestsSummaryCard";
 import PendingApprovalsCard from "@/components/PendingApprovalsCard";
 import QuickActionsCard from "@/components/QuickActionsCard";
 import RecentActivityList from "@/components/RecentActivityList";
-import { UserRole, RemovalStatus } from "@/types";
+import { UserRole, RemovalStatus, Activity, RemovalItem, RemovalTerm } from "@/types";
+import { User as AppUser } from "@/types";
+import { User as AuthUser } from "@/types/user";
 import { getRemovalRequests } from "@/api/removalService";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+// Helper function to convert AuthUser to AppUser
+const convertToAppUser = (user: AuthUser): AppUser => ({
+  id: typeof user.id === 'string' ? parseInt(user.id, 10) : user.id,
+  fullName: user.fullName,
+  email: user.email,
+  position: user.position || "",
+  role: user.role,
+  departmentId: 0 // Default value since AuthUser doesn't have this
+});
 
 // Utility function to determine if a user with a given role can approve a request
 const canUserApprove = (userRole: UserRole, requestStatus: RemovalStatus): boolean => {
@@ -26,23 +38,23 @@ const canUserApprove = (userRole: UserRole, requestStatus: RemovalStatus): boole
   return roleStatusMap[userRole]?.includes(requestStatus) || false;
 };
 
-// Interface for removal data
-interface Removal {
+// Interface for removal data from API
+interface ApiRemoval {
   id: number;
-  userId: number;
-  userName: string;
-  departmentName: string;
-  removalTerms: string;
-  dateFrom: string;
-  dateTo?: string;
-  itemDescription: string;
   status: string;
   createdAt: string;
+  userName: string;
+  itemDescription: string;
+  items?: Array<{ description: string; removalId: number; removalReasonId: number }>;
+  removalTerms?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  departmentName?: string;
 }
 
 interface RemovalResponse {
   msg: string;
-  removals: Removal[];
+  removals: ApiRemoval[];
   pagination: {
     total: number;
     page: number;
@@ -59,24 +71,22 @@ const Dashboard = () => {
   const { data: removalData, isLoading, isError, error } = useQuery({
     queryKey: ["dashboard-removals"],
     queryFn: async () => {
-      // Add any filters based on the current user if needed
       const filters: { userId?: number } = {}; 
       
       if (user && user.role !== "ADMIN") {
-        // Convert userId to number if it's a string
-        const userId = typeof user.id === 'string' ? parseInt(user.id) : user.id as number;
+        const userId = typeof user.id === 'string' ? parseInt(user.id, 10) : user.id as number;
         filters.userId = userId;
       }
       
       const response = await getRemovalRequests(filters);
-      
+
       if (response.result?.status === 'success') {
         return response.result.response as RemovalResponse;
       } else {
         throw new Error(response.result?.error || "Failed to load removal requests");
       }
     },
-    enabled: !!user, // Only run if user is available
+    enabled: !!user,
   });
 
   // Get the list of removals
@@ -91,6 +101,9 @@ const Dashboard = () => {
   const pendingApprovalsCount = user ? removals.filter(
     (req) => canUserApprove(user.role as UserRole, req.status as RemovalStatus)
   ).length : 0;
+
+  // Convert auth user to app user for components
+  const appUser = user ? convertToAppUser(user) : null;
 
   // Show loading state
   if (isLoading) {
@@ -137,14 +150,14 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           <MyRequestsSummaryCard
-            user={user}
+            user={appUser}
             pendingCount={pendingCount}
             approvedCount={approvedCount}
             rejectedCount={rejectedCount}
             isMobile={isMobile}
           />
           <PendingApprovalsCard
-            user={user}
+            user={appUser}
             pendingRequests={removals.filter(req => 
               user && canUserApprove(user.role as UserRole, req.status as RemovalStatus)
             )}
@@ -163,7 +176,17 @@ const Dashboard = () => {
             status: removal.status,
             createdAt: new Date(removal.createdAt),
             userName: removal.userName,
-            description: removal.itemDescription
+            description: removal.itemDescription,
+            items: removal.items?.map(item => ({
+              id: 0,
+              removalId: removal.id,
+              description: typeof item === 'string' ? item : item.description,
+              removalReasonId: typeof item === 'string' ? 0 : (item.removalReasonId || 0)
+            })) as RemovalItem[] || [],
+            removalTerms: (removal.removalTerms?.toUpperCase() === "RETURNABLE" ? "RETURNABLE" : "NON_RETURNABLE") as RemovalTerm,
+            dateFrom: removal.dateFrom ? new Date(removal.dateFrom) : undefined,
+            dateTo: removal.dateTo ? new Date(removal.dateTo) : undefined,
+            department: removal.departmentName
           }))} 
           isMobile={isMobile} 
         />

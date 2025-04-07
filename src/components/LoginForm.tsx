@@ -75,7 +75,6 @@ export default function LoginForm() {
       return response as LoginApiResponse;
     },
     onSuccess: (data) => {
-      console.log("Login response:", data);
       if (data.result?.status === "logged") {
         // Get user data from response
         const apiUser = data.result.response.user;
@@ -86,12 +85,18 @@ export default function LoginForm() {
 
         // Ensure we have a role even if the API doesn't provide one
         if (!apiUser.role) {
-          apiUser.role = apiUser.email.includes("admin") ? "ADMIN" : "EMPLOYEE" as UserRole;
+          apiUser.role = apiUser.email.includes("admin") ? "ADMIN" : "LEVEL_1" as UserRole;
         }
 
-        // Ensure we have a department name
-        if (!apiUser.department && !apiUser.departmentName) {
-          apiUser.departmentName = "Default Department";
+        // Ensure we have a departmentName
+        if (!apiUser.departmentName) {
+          // First try to get it from department.name if available
+          if (apiUser.department?.name) {
+            apiUser.departmentName = apiUser.department.name;
+          } else {
+            // Default fallback
+            apiUser.departmentName = "Not Assigned";
+          }
         }
 
         // Convert API user to our user model
@@ -102,7 +107,7 @@ export default function LoginForm() {
 
         toast({
           title: "Login successful",
-          description: data.result.response.msg || `Welcome, ${user.email}`,
+          description: data.result.response.msg || `Welcome, ${user.fullName || user.email}`,
         });
         
         // Redirect admin users to admin dashboard, others to regular dashboard
@@ -131,7 +136,6 @@ export default function LoginForm() {
 
   // Trigger the mutation on form submit
   const onSubmit = (values: LoginFormValues) => {
-    console.log("Submitting login form:", values);
     mutation.mutate(values);
   };
 

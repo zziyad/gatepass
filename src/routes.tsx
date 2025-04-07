@@ -53,13 +53,7 @@ const userRoutes: RouteConfig[] = [
     title: "My Requests",
     description: "View and manage your removal requests"
   },
-  {
-    path: "/removals",
-    element: lazyLoad(() => import("./pages/Removals")),
-    roles: ['user', 'admin'],
-    title: "All Removals",
-    description: "View and manage all removal requests"
-  },
+
   { 
     path: "/approvals", 
     element: lazyLoad(() => import("./pages/Approvals")),

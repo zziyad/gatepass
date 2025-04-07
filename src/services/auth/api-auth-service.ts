@@ -64,17 +64,20 @@ export class ApiAuthService implements AuthService {
   async getCurrentUser(): Promise<User | null> {
     try {
       // Directly call the endpoint that verifies and returns user data
-      const userData = await api.auth.getCurrentUser(); // This likely calls 'auth/verify'
-      
-      console.log("getCurrentUser response:", userData);
+      const userData = await api.auth.getCurrentUser();
 
       if (
         userData.result?.status === "logged" &&
         userData.result.response?.user
       ) {
-        const user = apiUserToUser(userData.result.response.user as ApiUser);
-        console.log("Converted user:", user);
-        return user;
+        const apiUser = userData.result.response.user as ApiUser;
+        
+        // Ensure departmentName is set if only department object is provided
+        if (!apiUser.departmentName && apiUser.department?.name) {
+          apiUser.departmentName = apiUser.department.name;
+        }
+        
+        return apiUserToUser(apiUser);
       }
 
       return null;

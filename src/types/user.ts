@@ -18,26 +18,31 @@ export interface BaseUser {
 
 /**
  * Client-side user model
+ * This is the standard user object to be used across the entire application
  */
 export interface User extends BaseUser {
   id: string | number;
   fullName: string;
-  department?: string;
-  departmentName?: string;
+  email: string;
+  role: UserRole;
   position?: string;
+  departmentName?: string;
 }
 
 /**
  * API user model from server responses
+ * This represents what the server sends in API responses
  */
 export interface ApiUser extends BaseUser {
   id: number;
   fullName: string;
+  email: string;
+  role: UserRole;
   position?: string;
-  departmentId?: number;
+  departmentName?: string;
+  // Legacy field - will be transformed to departmentName by adapters
   department?: {
     id: number;
     name: string;
   };
-  departmentName?: string;
 } 

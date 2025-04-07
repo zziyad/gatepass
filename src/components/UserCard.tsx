@@ -18,7 +18,7 @@ interface UserCardProps {
 export function UserCard({ user, className = "", variant = "default" }: UserCardProps) {
   // Check if user exists before proceeding
   if (!user) return null;
-  console.log({ CARD_USER: user });
+  
   // Create initials for avatar fallback with safe access
   const fullName = user.fullName || (user.email ? user.email.split('@')[0] : "User");
   const initials = fullName
@@ -28,8 +28,8 @@ export function UserCard({ user, className = "", variant = "default" }: UserCard
     .join("")
     .toUpperCase();
 
-  // Handle either department or departmentName property
-  const departmentDisplay = user.departmentName || user.department || "Default Department";
+  // Display department name
+  const departmentDisplay = user.departmentName || "Not Assigned";
 
   if (variant === "inline") {
     return (

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth, useRequests } from "@/contexts";
-import { RemovalRequest, RemovalStatus } from "@/types";
+import { Removal, RemovalStatus } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +23,7 @@ const canUserApprove = (userRole: UserRole, requestStatus: RemovalStatus): boole
 };
 
 interface ApprovalActionsProps {
-  request: RemovalRequest;
+  request: Removal;
 }
 
 const ApprovalActions: React.FC<ApprovalActionsProps> = ({ request }) => {

@@ -12,8 +12,7 @@ export function adaptApiUserToUser(apiUser: ApiUser): User {
     fullName: apiUser.fullName,
     email: apiUser.email,
     role: apiUser.role,
-    department: apiUser.department?.name,
-    departmentName: apiUser.departmentName,
+    departmentName: apiUser.departmentName || apiUser.department?.name,
     position: apiUser.position
   };
 }
@@ -40,8 +39,7 @@ export function userToApiUser(user: User): ApiUser {
     email: user.email,
     fullName: user.fullName,
     role: user.role,
-    departmentId: 0, // Default value, should be overridden
     position: user.position,
-    departmentName: user.departmentName || user.department
+    departmentName: user.departmentName
   };
 } 

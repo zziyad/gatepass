@@ -5,15 +5,23 @@ import { ApiResponse } from '../services/api/types';
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 // Types for removal requests
+export interface RemovalItem {
+  id?: number;
+  description: string;
+  // Support both ID and string name formats
+  removalReasonId?: number;
+  removalReason?: string;
+  customReason?: string; // Required if "Other" is selected
+}
+
 export interface CreateRemovalRequest {
   removalTerms: 'returnable' | 'non-returnable';
   dateFrom: string;      // ISO date format
   dateTo?: string;       // Required if returnable
   employee: string;      
   departmentId: number;
-  itemDescription: string;
-  removalReasonId: number;
-  customReason?: string; // Required if "Other" is selected
+  // New format with multiple items
+  items: RemovalItem[];  // Now required, not optional
   images: string[];      // Base64 encoded image strings
 }
 
@@ -24,18 +32,18 @@ export interface RemovalImage {
 
 export interface RemovalResponse {
   id: number;
-  userId: number;
+  userId?: number;
   status: string;
   createdAt: string;
   removalTerms: string;
   dateFrom: string;
   dateTo: string | null;
   employee: string;
-  departmentId: number;
-  itemDescription: string;
-  removalReasonId: number;
-  customReason: string | null;
+  departmentId?: number;
+  departmentName?: string;
+  items: RemovalItem[];
   images: RemovalImage[];
+  approvals: any[]; // Using any[] since we don't have the exact approval structure here
 }
 
 export interface CreateRemovalResponse {
@@ -63,10 +71,14 @@ export async function createRemovalRequest(removalData: CreateRemovalRequest): P
       throw new Error('Return date is required for returnable items');
     }
 
+    // Use the data as provided without backward compatibility modifications
+    let requestData = { ...removalData };
+    
+    console.log("Request data:", requestData);
     // Use custom API path as specified (removal/add)
     return await apiClient.request({
       method: 'removal/add',
-      args: removalData
+      args: requestData
     });
   } catch (error) {
     // Already handled by ApiClient - just pass through
@@ -110,7 +122,7 @@ export async function deleteRemovalImage(removalId: number, imageId: number): Pr
 }
 
 /**
- * Example of a returnable removal request object
+ * Example of a returnable removal request object with multiple items
  */
 export const returnableRemovalExample = {
   removalTerms: 'returnable' as const,
@@ -118,14 +130,23 @@ export const returnableRemovalExample = {
   dateTo: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
   employee: 'John Doe',
   departmentId: 1,
-  itemDescription: 'Company Laptop',
-  removalReasonId: 2, // Assuming 2 is "Temporary Use"
-  customReason: undefined, // Not needed unless "Other" reason is selected
+  items: [
+    {
+      description: 'Company Laptop',
+      removalReasonId: 2, // Assuming 2 is "Temporary Use"
+      customReason: undefined // Not needed unless "Other" reason is selected
+    },
+    {
+      description: 'Office Chair',
+      removalReasonId: 3, // Assuming 3 is "Remote Work"
+      customReason: undefined
+    }
+  ],
   images: ['base64EncodedImageString1', 'base64EncodedImageString2'] // Base64 encoded images
 };
 
 /**
- * Example of a non-returnable removal request object
+ * Example of a non-returnable removal request object with multiple items
  */
 export const nonReturnableRemovalExample = {
   removalTerms: 'non-returnable' as const,
@@ -133,9 +154,13 @@ export const nonReturnableRemovalExample = {
   dateTo: undefined, // Not required for non-returnable items
   employee: 'Jane Smith',
   departmentId: 2,
-  itemDescription: 'Damaged Office Chair',
-  removalReasonId: 1, // Assuming 1 is "Damaged"
-  customReason: undefined, // Not needed unless "Other" reason is selected
+  items: [
+    {
+      description: 'Damaged Office Chair',
+      removalReasonId: 1, // Assuming 1 is "Damaged"
+      customReason: undefined
+    }
+  ],
   images: ['base64EncodedImageString1'] // Base64 encoded images
 };
 
@@ -186,20 +211,18 @@ export function createReturnableRemoval({
   dateTo,
   departmentId,
   employee,
-  itemDescription,
-  removalReasonId,
-  customReason,
+  items,
   images
-}: Omit<CreateRemovalRequest, 'removalTerms' | 'dateTo'> & { dateTo: string }): Promise<ApiResponse<RemovalResponse>> {
+}: Omit<CreateRemovalRequest, 'removalTerms' | 'dateTo'> & { 
+  dateTo: string,
+}): Promise<ApiResponse<RemovalResponse>> {
   return createRemovalRequest({
     removalTerms: 'returnable',
     dateFrom,
     dateTo,
     departmentId,
     employee,
-    itemDescription,
-    removalReasonId,
-    customReason,
+    items,
     images
   });
 }
@@ -212,9 +235,7 @@ export function createNonReturnableRemoval({
   dateFrom,
   departmentId,
   employee,
-  itemDescription,
-  removalReasonId,
-  customReason,
+  items,
   images
 }: Omit<CreateRemovalRequest, 'removalTerms' | 'dateTo'>): Promise<ApiResponse<RemovalResponse>> {
   return createRemovalRequest({
@@ -222,9 +243,7 @@ export function createNonReturnableRemoval({
     dateFrom,
     departmentId,
     employee,
-    itemDescription,
-    removalReasonId,
-    customReason,
+    items,
     images
   });
 } 

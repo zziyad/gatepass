@@ -7,7 +7,8 @@ import {
   useMemo,
   ReactNode,
 } from "react";
-import { RemovalRequest, Image, RemovalStatus } from "@/types";
+import { Removal, RemovalStatus, RemovalImage, Approval } from "@/types";
+import { User } from "@/types/user";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "./AuthContext";
@@ -65,29 +66,29 @@ const getCurrentApprovalStage = (status: RemovalStatus): string => {
 
 // RequestsContext for request-related operations
 interface RequestsContextType {
-  requests: RemovalRequest[];
+  requests: Removal[];
   addRequest: (
     request: Omit<
-      RemovalRequest,
+      Removal,
       | "id"
       | "userId"
-      | "userName"
+      | "user"
       | "department"
       | "status"
       | "approvals"
       | "createdAt"
       | "updatedAt"
     >
-  ) => string | undefined;
-  getRequest: (id: string) => RemovalRequest | undefined;
+  ) => number;
+  getRequest: (id: number) => Removal | undefined;
   updateRequestStatus: (
-    id: string,
+    id: number,
     approved: boolean,
     signature?: string,
     rejectionReason?: string
   ) => void;
-  addImage: (requestId: string, imageUrl: string) => void;
-  removeImage: (requestId: string, imageId: string) => void;
+  addImage: (requestId: number, imageUrl: string) => void;
+  removeImage: (requestId: number, imageId: number) => void;
 }
 
 // Create the context
@@ -99,24 +100,31 @@ interface RequestsProviderProps {
 }
 
 export function RequestsProvider({ children }: RequestsProviderProps) {
-  const { user } = useAuth(); // Use the auth context
-  const [requests, setRequests] = useState<RemovalRequest[]>([]);
+  const { user } = useAuth();
+  const [requests, setRequests] = useState<Removal[]>([]);
 
   // Load requests from localStorage on initial render
   useEffect(() => {
     const storedData = loadFromLocalStorage("requestsData");
     if (storedData?.requests?.length) {
-      // Convert string dates back to Date objects
+      // Convert string dates back to Date objects and ensure proper types
       const parsedRequests = storedData.requests.map((request: any) => ({
         ...request,
+        id: Number(request.id),
+        userId: Number(request.userId),
         createdAt: request.createdAt ? new Date(request.createdAt) : new Date(),
         updatedAt: request.updatedAt ? new Date(request.updatedAt) : new Date(),
         dateFrom: request.dateFrom ? new Date(request.dateFrom) : null,
         dateTo: request.dateTo ? new Date(request.dateTo) : null,
-        // Also convert dates in approvals
-        approvals: request.approvals?.map((approval: any) => ({
-          ...approval,
-          timestamp: approval.timestamp ? new Date(approval.timestamp) : new Date()
+        // Convert approvals to match new structure
+        approvals: request.approvals?.map((approval: any, index: number) => ({
+          id: index + 1,
+          removalId: Number(request.id),
+          level: approval.stage,
+          approverId: 0, // Default value since we don't have this in old data
+          approval: approval.approved ? "APPROVED" : "REJECTED",
+          signature: approval.signature,
+          signatureDate: approval.timestamp ? new Date(approval.timestamp) : new Date()
         })) || []
       }));
       setRequests(parsedRequests);
@@ -131,10 +139,10 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
   const addRequest = useCallback(
     (
       newRequestData: Omit<
-        RemovalRequest,
+        Removal,
         | "id"
         | "userId"
-        | "userName"
+        | "user"
         | "department"
         | "status"
         | "approvals"
@@ -148,16 +156,24 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
           description: "You must be logged in to create a request",
           variant: "destructive",
         });
-        return;
+        return 0;
       }
 
       const now = new Date();
+      const newId = Math.floor(Math.random() * 1000000) + 1; // Generate a random numeric ID
 
-      const newRequest: RemovalRequest = {
-        id: uuidv4(),
-        userId: String(user.id),
-        userName: user.fullName,
-        departmentName: user.departmentName || user.department || "Unknown",
+      const newRequest: Removal = {
+        id: newId,
+        userId: typeof user.id === 'string' ? parseInt(user.id, 10) : user.id,
+        user: {
+          id: typeof user.id === 'string' ? parseInt(user.id, 10) : user.id,
+          fullName: user.fullName,
+          email: user.email,
+          position: user.position || "",
+          role: user.role,
+          departmentId: 0 // Default value since we don't have this in the User type
+        },
+        departmentId: 0, // Default value since we don't have this in the User type
         status: "PENDING_LEVEL_2",
         approvals: [],
         createdAt: now,
@@ -172,13 +188,13 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
         description: "Removal request created successfully",
       });
 
-      return newRequest.id;
+      return newId;
     },
     [user]
   );
 
   const getRequest = useCallback(
-    (id: string) => {
+    (id: number) => {
       return requests.find((request) => request.id === id);
     },
     [requests]
@@ -186,7 +202,7 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
 
   const updateRequestStatus = useCallback(
     (
-      id: string,
+      id: number,
       approved: boolean,
       signature?: string,
       rejectionReason?: string
@@ -209,45 +225,37 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
               return request;
             }
 
-            // Ensure stage is one of the allowed values for Approval type
-            let approvalStage: 'LEVEL_2' | 'LEVEL_3' | 'LEVEL_4' | 'SECURITY' = 'LEVEL_2';
-            
-            if (currentStage === 'Level 2' || currentStage === 'Level 3' || 
-                currentStage === 'Level 4' || currentStage === 'Security') {
-              approvalStage = currentStage === 'Level 2' ? 'LEVEL_2' : 
-                              currentStage === 'Level 3' ? 'LEVEL_3' : 
-                              currentStage === 'Level 4' ? 'LEVEL_4' : 
-                              'SECURITY';
-            }
+            const level: Approval['level'] = 
+              currentStage === 'Level 2' ? 'LEVEL_2' :
+              currentStage === 'Level 3' ? 'LEVEL_3' :
+              currentStage === 'Level 4' ? 'LEVEL_4' :
+              currentStage === 'Security' ? 'SECURITY' :
+              'LEVEL_2';
 
-            const approval = {
-              stage: approvalStage,
-              approved,
+            const newApproval: Approval = {
+              id: (request.approvals.length + 1),
+              removalId: request.id,
+              level,
+              approverId: typeof user.id === 'string' ? parseInt(user.id, 10) : user.id,
+              approval: approved ? "APPROVED" : "REJECTED",
               signature,
-              rejectionReason,
-              approvedBy: user.fullName,
-              timestamp: new Date(),
+              signatureDate: new Date()
             };
 
-            const newStatus = approved
-              ? getNextStatus(request.status, approved)
-              : "REJECTED";
-
-            const updatedRequest = {
-              ...request,
-              status: newStatus,
-              approvals: [...request.approvals, approval],
-              updatedAt: new Date(),
-            };
+            const newStatus = getNextStatus(request.status, approved);
 
             const statusMessage = approved ? "approved" : "rejected";
-
             toast({
               title: `Request ${statusMessage}`,
               description: `The removal request has been ${statusMessage} successfully.`,
             });
 
-            return updatedRequest;
+            return {
+              ...request,
+              status: newStatus,
+              approvals: [...request.approvals, newApproval],
+              updatedAt: new Date(),
+            };
           }
           return request;
         });
@@ -256,13 +264,14 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
     [user]
   );
 
-  const addImage = useCallback((requestId: string, imageUrl: string) => {
+  const addImage = useCallback((requestId: number, imageUrl: string) => {
     setRequests((prevRequests) => {
       return prevRequests.map((request) => {
         if (request.id === requestId) {
-          const newImage: Image = {
-            id: uuidv4(),
-            url: imageUrl,
+          const newImage: RemovalImage = {
+            id: request.images.length + 1,
+            removalId: requestId,
+            url: imageUrl
           };
 
           return {
@@ -276,7 +285,7 @@ export function RequestsProvider({ children }: RequestsProviderProps) {
     });
   }, []);
 
-  const removeImage = useCallback((requestId: string, imageId: string) => {
+  const removeImage = useCallback((requestId: number, imageId: number) => {
     setRequests((prevRequests) => {
       return prevRequests.map((request) => {
         if (request.id === requestId) {
