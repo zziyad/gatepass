@@ -1,10 +1,9 @@
-import { ReactNode, useEffect } from "react";
-import { Navigate, useLocation } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
+import { ReactNode } from "react";
+import ProtectedRoute from "./ProtectedRoute";
+import { UserRole } from '@/types/user';
 
-interface AuthGuardProps {
+interface GuardProps {
   children: ReactNode;
-  requireAdmin?: boolean;
 }
 
 /**
@@ -12,31 +11,62 @@ interface AuthGuardProps {
  * Redirects to login if not authenticated
  * Redirects to dashboard if not admin but trying to access admin routes
  */
-export function AuthGuard({ children, requireAdmin = false }: AuthGuardProps) {
-  const { user } = useApp();
-  const location = useLocation();
-
-  const isAuthenticated = !!user;
-  const isAdmin = user?.role === "ADMIN";
-
-  // If not authenticated, redirect to login
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  // If route requires admin access but user is not admin
-  if (requireAdmin && !isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  // Otherwise render children
-  return <>{children}</>;
+export function AuthGuard({ children }: GuardProps) {
+  return <ProtectedRoute>{children}</ProtectedRoute>;
 }
 
 /**
  * Admin guard component specifically for admin routes
  * Redirects to dashboard if user is not admin
  */
-export function AdminGuard({ children }: { children: ReactNode }) {
-  return <AuthGuard requireAdmin>{children}</AuthGuard>;
+export function AdminGuard({ children }: GuardProps) {
+  return (
+    <ProtectedRoute allowedRoles={['ADMIN']}>
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+/**
+ * Guard component that requires HOD authentication
+ */
+export function HeadOfDepartmentGuard({ children }: GuardProps) {
+  return (
+    <ProtectedRoute allowedRoles={['HOD', 'ADMIN']}>
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+/**
+ * Guard component that requires Finance authentication
+ */
+export function FinanceGuard({ children }: GuardProps) {
+  return (
+    <ProtectedRoute allowedRoles={['FINANCE', 'ADMIN']}>
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+/**
+ * Guard component that requires Security authentication
+ */
+export function SecurityGuard({ children }: GuardProps) {
+  return (
+    <ProtectedRoute allowedRoles={['SECURITY', 'ADMIN']}>
+      {children}
+    </ProtectedRoute>
+  );
+}
+
+/**
+ * Guard component that requires Moderator authentication
+ */
+export function ModeratorGuard({ children }: GuardProps) {
+  return (
+    <ProtectedRoute allowedRoles={['MOD', 'ADMIN']}>
+      {children}
+    </ProtectedRoute>
+  );
 } 

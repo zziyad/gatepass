@@ -9,34 +9,26 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock, CheckCircle, XCircle, FileText } from "lucide-react";
-import { RemovalRequest } from "@/types"; // Use RemovalRequest type
 import { User } from "@/types"; // Assuming User type is defined in @/types
 
 interface MyRequestsSummaryCardProps {
   user: User | null;
-  requests: RemovalRequest[]; // Use RemovalRequest type
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
   isMobile: boolean;
 }
 
 const MyRequestsSummaryCard = ({
   user,
-  requests,
+  pendingCount,
+  approvedCount,
+  rejectedCount,
   isMobile,
 }: MyRequestsSummaryCardProps) => {
   const navigate = useNavigate();
 
   if (!user) return null; // Or some loading/error state
-
-  const myRequests = requests.filter((req) => req.userId === user.id);
-  const pendingCount = myRequests.filter(
-    (req) => !["APPROVED", "REJECTED"].includes(req.status)
-  ).length;
-  const approvedCount = myRequests.filter(
-    (req) => req.status === "APPROVED"
-  ).length;
-  const rejectedCount = myRequests.filter(
-    (req) => req.status === "REJECTED"
-  ).length;
 
   return (
     <Card className="shadow-sm border-t-2 border-t-blue-100">

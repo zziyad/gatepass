@@ -1,0 +1,38 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Understanding the Workflow
+
+    User Submission:
+        User logs in with credentials (admin-assigned).
+        Fills out a form:
+            Chooses removal terms (returnable/non-returnable).
+            If returnable: Shows dateTo and department.
+            If non-returnable: Shows dateFrom and employee (sender).
+            Fills itemDescription (free text).
+            Selects removalReason from a dropdown; if “Other,” a text field appears for custom reason.
+            Uploads multiple images of the item.
+        Reviews all fields, edits if needed, then submits.
+    Approval Process:
+        Form goes to the user’s department manager (HOD).
+        HOD reviews, approves, or rejects with a reason.
+        If approved, it moves to Finance, then MOD, then Security.
+        Each level can approve (with signature) or reject (with reason).
+        If rejected at any stage, the user gets a notification with the reason.
+    Final Steps:
+        If Security approves, a report is generated, and the user gets a printable form (the one you provided).
+        If rejected, the user is notified with the rejection reason.
+
+Database Model Adjustments
+
+We need to update the Prisma schema to handle:
+
+    User Auth: A User model for credentials and roles.
+    Removal Reasons: A separate RemovalReason model for the dropdown options.
+    Images: A one-to-many relation for item images.
+    Approval Status: Track the form’s status and rejection reason.
+    Signatures: Already included as base64 strings.
+
+

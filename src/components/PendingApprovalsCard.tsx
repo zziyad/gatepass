@@ -8,28 +8,29 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RemovalRequest } from "@/types";
 import { User } from "@/types";
-import { canUserApprove } from "@/lib/mockData"; // Assuming this helper exists
+
+// Define a simplified removal interface for the pending requests
+interface PendingRemoval {
+  id: number;
+  itemDescription: string;
+  status: string;
+}
 
 interface PendingApprovalsCardProps {
   user: User | null;
-  requests: RemovalRequest[];
+  pendingRequests: PendingRemoval[];
   isMobile: boolean;
 }
 
 const PendingApprovalsCard = ({
   user,
-  requests,
+  pendingRequests,
   isMobile,
 }: PendingApprovalsCardProps) => {
   const navigate = useNavigate();
 
   if (!user) return null;
-
-  const pendingApprovals = requests.filter(
-    (req) => user && canUserApprove(user.role, req.status)
-  );
 
   return (
     <Card className="shadow-sm border-t-2 border-t-amber-100">
@@ -43,8 +44,8 @@ const PendingApprovalsCard = ({
       </CardHeader>
       <CardContent className={isMobile ? "px-4 py-2" : "px-6 py-3"}>
         <div className="space-y-3">
-          {pendingApprovals.length > 0 ? (
-            pendingApprovals.slice(0, 3).map((request) => (
+          {pendingRequests.length > 0 ? (
+            pendingRequests.slice(0, 3).map((request) => (
               <div
                 key={request.id}
                 className="flex justify-between items-center"
@@ -74,7 +75,7 @@ const PendingApprovalsCard = ({
           variant="outline"
           className="w-full h-10"
           onClick={() => navigate("/approvals")}
-          disabled={pendingApprovals.length === 0}
+          disabled={pendingRequests.length === 0}
         >
           View All Approvals
         </Button>

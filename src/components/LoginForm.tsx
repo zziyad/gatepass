@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useApp } from "@/contexts/AppContext";
+import { useAuth } from "@/contexts";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,8 +24,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
-import { apiClient } from "@/lib/apiClient";
-import { User, UserRole } from "@/types";
+import { api } from "@/services/api";
+import { User, UserRole, ApiUser } from "@/types/user";
+import { adaptApiUserToUser } from "@/adapters/userAdapter";
 
 // Define validation schema with Zod
 const loginSchema = z.object({
@@ -43,21 +44,13 @@ interface LoginApiResponse {
     status: string;
     response: {
       msg: string;
-      user?: {
-        id: number;
-        email: string;
-        role?: UserRole;
-        department?: {
-          id: number;
-          name: string;
-        };
-      };
+      user?: ApiUser; // Change this to match our ApiUser type
     };
   };
 }
 
 export default function LoginForm() {
-  const { setUser } = useApp();
+  const { setUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const formId = useId();
@@ -78,53 +71,43 @@ export default function LoginForm() {
     LoginFormValues
   >({
     mutationFn: async (credentials) => {
-      const response = await apiClient({
-        method: "auth/signin",
-        args: { email: credentials.email, password: credentials.password },
-        requiresAuth: false,
-      });
+      const response = await api.auth.login(credentials.email, credentials.password);
       return response as LoginApiResponse;
     },
     onSuccess: (data) => {
-      console.log("Login response:", data);
       if (data.result?.status === "logged") {
-        // For testing - mock user data if not provided by API
-        const emailAddress = form.getValues().email;
-        const mockUser = {
-          id: 1,
-          email: emailAddress,
-          role: emailAddress.includes("admin") ? "ADMIN" : "EMPLOYEE" as UserRole,
-          department: {
-            id: 1,
-            name: "IT Department"
+        // Get user data from response
+        const apiUser = data.result.response.user;
+        
+        if (!apiUser) {
+          throw new Error("No user data returned from server");
+        }
+
+        // Ensure we have a role even if the API doesn't provide one
+        if (!apiUser.role) {
+          apiUser.role = apiUser.email.includes("admin") ? "ADMIN" : "LEVEL_1" as UserRole;
+        }
+
+        // Ensure we have a departmentName
+        if (!apiUser.departmentName) {
+          // First try to get it from department.name if available
+          if (apiUser.department?.name) {
+            apiUser.departmentName = apiUser.department.name;
+          } else {
+            // Default fallback
+            apiUser.departmentName = "Not Assigned";
           }
-        };
-        
-        // Get user data from response or use mock
-        const userData = data.result.response.user || mockUser;
-        
-        // Cookie is automatically handled by the browser
-        // The server sets the 'token' cookie with HttpOnly flag
+        }
 
-        // Default role and department if not provided
-        const userRole = userData.role || (userData.email.includes("admin") ? "ADMIN" : "EMPLOYEE" as UserRole);
-        const userDepartment = userData.department?.name || "Default Department";
-
-        // Map the API response to our User type
-        const user: User = {
-          id: userData.id.toString(),
-          name: userData.email, // Use email as name since name is not available
-          email: userData.email,
-          role: userRole,
-          department: userDepartment,
-        };
+        // Convert API user to our user model
+        const user = adaptApiUserToUser(apiUser);
 
         // Update user context
         setUser(user);
 
         toast({
           title: "Login successful",
-          description: data.result.response.msg || `Welcome, ${userData.email}`,
+          description: data.result.response.msg || `Welcome, ${user.fullName || user.email}`,
         });
         
         // Redirect admin users to admin dashboard, others to regular dashboard
@@ -153,7 +136,6 @@ export default function LoginForm() {
 
   // Trigger the mutation on form submit
   const onSubmit = (values: LoginFormValues) => {
-    console.log("Submitting login form:", values);
     mutation.mutate(values);
   };
 

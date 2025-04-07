@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, QueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,8 +30,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { apiClient } from "@/lib/apiClient";
+import { api } from "@/services/api";
+import { ApiResponse } from "@/services/api/types";
 import { UserRole } from "@/types";
+import { RegistrationData } from "@/services/auth/types";
 
 // Updated to match schema
 interface Department {
@@ -39,80 +41,70 @@ interface Department {
   name: string;
 }
 
-// Fallback mock departments for development until API is ready
-const mockDepartments: Department[] = [
-  { id: 1, name: "IT Department" },
-  { id: 2, name: "Finance Department" },
-  { id: 3, name: "HR Department" },
-  { id: 4, name: "Operations" },
-  { id: 5, name: "Marketing" },
-  { id: 6, name: "Research & Development" },
-];
-
 // Define validation schema with Zod
 const registerSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters"),
+  fullName: z.string().min(3, "Full name must be at least 3 characters"),
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   departmentId: z.string().min(1, "Department is required"), // Will be converted to number
-  role: z.enum(["EMPLOYEE", "HOD", "FINANCE", "MOD", "SECURITY", "ADMIN"]),
+  position: z.string().min(2, "Position is required"), // Employee's job title
+  role: z.enum(["LEVEL_1", "LEVEL_2", "LEVEL_3", "LEVEL_4", "SECURITY", "ADMIN"]),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
-// Define expected API response structure based on schema
-interface RegisterSuccessResponse {
-  id: number;
-  email: string;
-  role: UserRole;
-  name: string;
-  department: {
-    id: number;
-    name: string;
-  };
-}
-
 interface RegisterFormProps {
   adminCreated?: boolean;
+  queryClient?: QueryClient;
+  onComplete?: () => void;
 }
 
-export default function RegisterForm({ adminCreated = false }: RegisterFormProps) {
+export default function RegisterForm({ 
+  adminCreated = false,
+  queryClient,
+  onComplete
+}: RegisterFormProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const formId = useId();
   const [apiError, setApiError] = useState<string | null>(null);
 
   // Query to fetch departments
-  const { data: apiDepartments, isError } = useQuery<Department[]>({
+  const { data: departments = [], isLoading: loadingDepartments } = useQuery<Department[]>({
     queryKey: ["departments"],
-    queryFn: () => 
-      apiClient<Department[]>({
-        method: "department/list",
-        args: {},
-        requiresAuth: adminCreated, // Require auth if admin is creating the account
-      }).then(res => res.response || [])
-      .catch(err => {
-        setApiError("Failed to load departments: " + err.message);
+    queryFn: async () => {
+      try {
+        // Use admin API to get departments
+        const response = await api.admin.getDepartments();
+        
+        if (response.result?.status === "success" && 
+            response.result.response?.departments) {
+          return response.result.response.departments as Department[];
+        }
+        
+        console.warn("Failed to fetch departments");
         return [];
-      }),
+      } catch (err) {
+        const error = err as Error;
+        console.error("Failed to load departments:", error);
+        setApiError("Failed to load departments: " + error.message);
+        return [];
+      }
+    },
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-
-  // Use API departments if available, otherwise use mock data
-  const departments = (apiDepartments && apiDepartments.length > 0) 
-    ? apiDepartments 
-    : mockDepartments;
 
   // Initialize form
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      name: "",
+      fullName: "",
       email: "",
       password: "",
       departmentId: "",
-      role: "EMPLOYEE" // Default role
+      position: "",
+      role: "LEVEL_1" // Default role
     },
   });
 
@@ -127,32 +119,45 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
     }
   }, [apiError, toast]);
 
-  // Define the mutation
-  const mutation = useMutation<
-    { status: string; response?: RegisterSuccessResponse },
-    Error,
-    RegisterFormValues
-  >({
-    mutationFn: (userData) =>
-      apiClient<RegisterSuccessResponse>({
-        method: adminCreated ? "admin/createUser" : "auth/register",
-        args: {
-          name: userData.name,
-          email: userData.email,
-          password: userData.password,
-          departmentId: parseInt(userData.departmentId, 10),
-          role: userData.role,
-        },
-        requiresAuth: adminCreated, // Require auth if admin is creating the account
-      }),
-    onSuccess: (data) => {
-      const successStatus = adminCreated ? "created" : "registered";
-      if (data.status === successStatus && data.response) {
+  // Define the register user mutation
+  const registerMutation = useMutation({
+    mutationFn: async (values: RegisterFormValues) => {
+      // Create registration data object
+      const registrationData: RegistrationData = {
+        fullName: values.fullName,
+        email: values.email,
+        password: values.password,
+        departmentId: parseInt(values.departmentId, 10),
+        position: values.position
+      };
+      
+      // Add role if admin is creating the user
+      if (adminCreated && values.role) {
+        registrationData.role = values.role as UserRole;
+      }
+      
+      // Call the auth register service
+      return api.auth.register(registrationData);
+    },
+    onSuccess: (response) => {
+      console.log("Registration response:", response);
+      
+      // Expected response format:
+      // {
+      //   "result": {
+      //     "status": "success",
+      //     "response": { 
+      //       "msg": "User registered successfully" 
+      //     }
+      //   }
+      // }
+      
+      if (response?.result?.status === "success") {
+        const successMsg = response.result.response?.msg || "User registered successfully";
+        
         toast({
           title: "Registration successful",
-          description: adminCreated 
-            ? `User ${data.response.name} has been created successfully.`
-            : "You can now log in with your credentials.",
+          description: successMsg,
         });
         
         // If admin created, stay on the page for more registrations
@@ -162,18 +167,29 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
         } else {
           // Reset form for next user creation
           form.reset({
-            name: "",
+            fullName: "",
             email: "",
             password: "",
             departmentId: "",
-            role: "EMPLOYEE"
+            position: "",
+            role: "LEVEL_1"
           });
+          
+          // If queryClient is provided, refresh users list
+          if (queryClient) {
+            queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+          }
+          
+          // Call onComplete callback if provided
+          if (onComplete) {
+            onComplete();
+          }
         }
       } else {
-        throw new Error(data.status || "Registration failed: Unknown status");
+        throw new Error(response?.result?.error || "Registration failed");
       }
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         title: "Registration failed",
         description: error.message || "An error occurred during registration.",
@@ -182,8 +198,9 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
     },
   });
 
+  // Handle form submission
   const onSubmit = (values: RegisterFormValues) => {
-    mutation.mutate(values);
+    registerMutation.mutate(values);
   };
 
   return (
@@ -202,16 +219,16 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
             <div className="grid w-full items-center gap-4">
               <FormField
                 control={form.control}
-                name="name"
+                name="fullName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor={`${formId}-name`}>
-                      Full Name
+                    <FormLabel htmlFor={`${formId}-fullName`}>
+                      Full fullName
                     </FormLabel>
                     <FormControl>
                       <Input
-                        id={`${formId}-name`}
-                        disabled={mutation.isPending}
+                        id={`${formId}-fullName`}
+                        disabled={registerMutation.isPending}
                         {...field}
                       />
                     </FormControl>
@@ -230,7 +247,7 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
                         id={`${formId}-email`}
                         type="email"
                         autoComplete="email"
-                        disabled={mutation.isPending}
+                        disabled={registerMutation.isPending}
                         {...field}
                       />
                     </FormControl>
@@ -243,15 +260,13 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel htmlFor={`${formId}-password`}>
-                      Password
-                    </FormLabel>
+                    <FormLabel htmlFor={`${formId}-password`}>Password</FormLabel>
                     <FormControl>
                       <Input
                         id={`${formId}-password`}
                         type="password"
                         autoComplete="new-password"
-                        disabled={mutation.isPending}
+                        disabled={registerMutation.isPending}
                         {...field}
                       />
                     </FormControl>
@@ -264,24 +279,23 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
                 name="departmentId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Department</FormLabel>
+                    <FormLabel htmlFor={`${formId}-department`}>
+                      Department
+                    </FormLabel>
                     <Select
-                      disabled={mutation.isPending}
+                      disabled={registerMutation.isPending || loadingDepartments}
                       onValueChange={field.onChange}
-                      value={field.value}
+                      defaultValue={field.value}
                     >
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a department" />
+                        <SelectTrigger id={`${formId}-department`}>
+                          <SelectValue placeholder="Select department" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {departments.map((department) => (
-                          <SelectItem
-                            key={department.id}
-                            value={department.id.toString()}
-                          >
-                            {department.name}
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={String(dept.id)}>
+                            {dept.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -290,48 +304,79 @@ export default function RegisterForm({ adminCreated = false }: RegisterFormProps
                   </FormItem>
                 )}
               />
+              
+              {/* Position field */}
               <FormField
                 control={form.control}
-                name="role"
+                name="position"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Role</FormLabel>
-                    <Select
-                      disabled={mutation.isPending}
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="EMPLOYEE">Employee</SelectItem>
-                        <SelectItem value="HOD">Head of Department</SelectItem>
-                        <SelectItem value="FINANCE">Finance</SelectItem>
-                        <SelectItem value="MOD">MOD</SelectItem>
-                        <SelectItem value="SECURITY">Security</SelectItem>
-                        {adminCreated && (
-                          <SelectItem value="ADMIN">Admin</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel htmlFor={`${formId}-position`}>
+                      Position
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        id={`${formId}-position`}
+                        disabled={registerMutation.isPending}
+                        placeholder="e.g., Manager, Engineer, Analyst"
+                        {...field}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* Only show role selector for admin */}
+              {adminCreated && (
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel htmlFor={`${formId}-role`}>User Role</FormLabel>
+                      <Select
+                        disabled={registerMutation.isPending}
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger id={`${formId}-role`}>
+                            <SelectValue placeholder="Select role" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="LEVEL_1">Requester</SelectItem>
+                          <SelectItem value="LEVEL_2">Department Approval</SelectItem>
+                          <SelectItem value="LEVEL_3">Finance Approval</SelectItem>
+                          <SelectItem value="LEVEL_4">Management Approval</SelectItem>
+                          <SelectItem value="SECURITY">Security Approval</SelectItem>
+                          <SelectItem value="ADMIN">Administrator</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex justify-between">
+            {adminCreated && (
+              <Button 
+                variant="outline" 
+                type="button" 
+                onClick={onComplete ? onComplete : () => navigate("/admin/users")}
+              >
+                Cancel
+              </Button>
+            )}
             <Button
               type="submit"
-              className="w-full"
-              disabled={mutation.isPending}
+              className={!adminCreated ? "w-full" : ""}
+              disabled={registerMutation.isPending}
             >
-              {mutation.isPending 
-                ? (adminCreated ? "Creating..." : "Registering...") 
-                : (adminCreated ? "Create User" : "Register")}
+              {registerMutation.isPending ? "Processing..." : adminCreated ? "Create User" : "Register"}
             </Button>
           </CardFooter>
         </form>

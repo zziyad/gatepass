@@ -1,13 +1,16 @@
-import { useApp } from "@/contexts/AppContext";
+import { useAuth, useRequests } from "@/contexts";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building, UserCircle, Users, ClipboardCheck } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { getRoleDisplayName } from "@/utils/roleUtils";
+import { UserCard } from "@/components/UserCard";
 
 const Profile = () => {
-  const { user, requests } = useApp();
+  const { user } = useAuth();
+  const { requests } = useRequests();
   const isMobile = useIsMobile();
   
   if (!user) return null;
@@ -34,34 +37,7 @@ const Profile = () => {
               <CardDescription className={isMobile ? "text-xs" : "text-sm"}>Your account details</CardDescription>
             </CardHeader>
             <CardContent className={isMobile ? "px-4 py-3" : "px-6 py-4"}>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <UserCircle className={isMobile ? "h-10 w-10 text-gray-400" : "h-12 w-12 text-gray-400"} />
-                  <div>
-                    <h3 className={isMobile ? "font-medium text-base" : "font-medium text-lg"}>{user.name}</h3>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge variant="outline" className="text-xs font-medium">{user.role}</Badge>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-3 mt-4 bg-gray-50 rounded-lg p-3">
-                  <div className="flex items-center space-x-2">
-                    <Building className="h-5 w-5 text-gray-500" />
-                    <span className={isMobile ? "text-sm" : "text-base"}>Department: {user.department}</span>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Users className="h-5 w-5 text-gray-500" />
-                    <span className={isMobile ? "text-sm" : "text-base"}>Role: {user.role}</span>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <ClipboardCheck className="h-5 w-5 text-gray-500" />
-                    <span className={isMobile ? "text-sm" : "text-base"}>Total Requests: {myRequests.length}</span>
-                  </div>
-                </div>
-              </div>
+              <UserCard user={user} />
             </CardContent>
           </Card>
           

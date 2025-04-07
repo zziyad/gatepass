@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback, memo } from "react";
+import { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth, useRequests } from "@/contexts/AppContext";
+import { useAuth, useRequests } from "@/contexts";
 import AppLayout from "@/components/AppLayout";
 import PageHeader from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
@@ -14,9 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CheckCircle, Clock, Search } from "lucide-react";
-import { canUserApprove } from "@/lib/mockData";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { RemovalRequest } from "@/types";
+import { Removal, RemovalTerm, RemovalStatus, UserRole } from "@/types";
 
 // Memoized request card component to prevent unnecessary re-renders
 const RequestCard = memo(
@@ -26,10 +25,10 @@ const RequestCard = memo(
     formatStatus,
     onReview,
   }: {
-    request: RemovalRequest;
+    request: Removal;
     isMobile: boolean;
     formatStatus: (status: string) => string;
-    onReview: (id: string) => void;
+    onReview: (id: number) => void;
   }) => (
     <Card key={request.id} className="p-4 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
@@ -41,7 +40,7 @@ const RequestCard = memo(
                 : "font-medium text-lg truncate"
             }
           >
-            {request.itemDescription}
+            {request.items[0]?.description}
           </h3>
           <div
             className={
@@ -50,8 +49,8 @@ const RequestCard = memo(
                 : "flex flex-col sm:flex-row sm:space-x-4 text-sm text-gray-500 mt-1"
             }
           >
-            <p>Requested by {request.userName}</p>
-            <p>Department: {request.department}</p>
+            <p>Requested by {request.user?.fullName || 'Unknown'}</p>
+            <p>Department: {request.department?.name || 'Unknown'}</p>
             <p>
               Status:{" "}
               <span className="text-amber-600 font-medium">
@@ -67,8 +66,8 @@ const RequestCard = memo(
             }
           >
             <p>
-              {request.term === "RETURNABLE" ? "Returnable" : "Non-Returnable"}{" "}
-              • Submitted on {request.createdAt.toLocaleDateString()}
+              {request.removalTerms === "RETURNABLE" ? "Returnable" : "Non-Returnable"}{" "}
+              • Submitted on {new Date(request.createdAt).toLocaleDateString()}
             </p>
           </div>
         </div>
@@ -95,6 +94,20 @@ const formatStatus = (status: string) => {
     .replace(/\b\w/g, (l) => l.toUpperCase());
 };
 
+// Utility function to determine if a user with a given role can approve a request
+const canUserApprove = (userRole: UserRole, requestStatus: RemovalStatus): boolean => {
+  const roleStatusMap: Record<UserRole, RemovalStatus[]> = {
+    'LEVEL_1': [],
+    'LEVEL_2': ['PENDING_LEVEL_2'],
+    'LEVEL_3': ['PENDING_LEVEL_3'],
+    'LEVEL_4': ['PENDING_LEVEL_4'],
+    'SECURITY': ['PENDING_SECURITY'],
+    'ADMIN': ['PENDING_LEVEL_2', 'PENDING_LEVEL_3', 'PENDING_LEVEL_4', 'PENDING_SECURITY']
+  };
+  
+  return roleStatusMap[userRole]?.includes(requestStatus) || false;
+};
+
 const Approvals = () => {
   const { user } = useAuth();
   const { requests } = useRequests();
@@ -116,7 +129,7 @@ const Approvals = () => {
     () =>
       pendingApprovals.filter((req) => {
         const matchesSearch = searchTerm
-          ? req.itemDescription.toLowerCase().includes(searchTerm.toLowerCase())
+          ? req.items[0]?.description.toLowerCase().includes(searchTerm.toLowerCase())
           : true;
         const matchesStatus =
           filterStatus === "all" || req.status === filterStatus;
@@ -133,7 +146,7 @@ const Approvals = () => {
 
   // Memoize the navigation handler
   const handleReview = useCallback(
-    (id: string) => {
+    (id: number) => {
       navigate(`/request/${id}`);
     },
     [navigate]
@@ -208,7 +221,7 @@ const Approvals = () => {
                           : "font-medium text-lg truncate"
                       }
                     >
-                      {request.itemDescription}
+                      {request.items[0]?.description}
                     </h3>
                     <div
                       className={
@@ -217,8 +230,8 @@ const Approvals = () => {
                           : "flex flex-col sm:flex-row sm:space-x-4 text-sm text-gray-500 mt-1"
                       }
                     >
-                      <p>Requested by {request.userName}</p>
-                      <p>Department: {request.department}</p>
+                      <p>Requested by {request.user?.fullName || 'Unknown'}</p>
+                      <p>Department: {request.department?.name || 'Unknown'}</p>
                       <p>
                         Status:{" "}
                         <span className="text-amber-600 font-medium">
@@ -234,10 +247,10 @@ const Approvals = () => {
                       }
                     >
                       <p>
-                        {request.term === "RETURNABLE"
+                        {request.removalTerms === "RETURNABLE"
                           ? "Returnable"
                           : "Non-Returnable"}{" "}
-                        • Submitted on {request.createdAt.toLocaleDateString()}
+                        • Submitted on {new Date(request.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
